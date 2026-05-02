@@ -10,6 +10,9 @@ interface AppShellProps {
   onMobileOpen: () => void
   onMobileClose: () => void
   children: ReactNode
+  isAdmin?: boolean
+  userLabel?: string
+  onLogout?: () => void
 }
 
 export function AppShell({
@@ -19,6 +22,9 @@ export function AppShell({
   onMobileOpen,
   onMobileClose,
   children,
+  isAdmin = false,
+  userLabel,
+  onLogout,
 }: AppShellProps) {
   const isAgent = section === 'agent'
 
@@ -30,10 +36,16 @@ export function AppShell({
         mobileOpen={mobileOpen}
         onMobileClose={onMobileClose}
         compact={isAgent}
+        isAdmin={isAdmin}
       />
       <div className="flex min-h-screen flex-1 flex-col md:ml-0">
         {!isAgent && (
-          <Header section={section} onMenuClick={onMobileOpen} />
+          <Header
+            section={section}
+            onMenuClick={onMobileOpen}
+            userLabel={userLabel}
+            onLogout={onLogout}
+          />
         )}
         {isAgent && (
           <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur md:px-6">

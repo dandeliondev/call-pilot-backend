@@ -4,6 +4,7 @@ export type AppSection =
   | 'reports'
   | 'scripts'
   | 'insights'
+  | 'users'
   | 'agent'
 
 export type CallOutcome = 'Booked' | 'Follow-up' | 'No answer' | 'Declined' | 'Qualified'

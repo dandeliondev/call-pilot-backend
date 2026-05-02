@@ -1,19 +1,35 @@
 import { useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
+import { MockAuthProvider } from './context/MockAuthProvider'
+import { useMockAuth } from './hooks/useMockAuth'
 import type { AppSection } from './types/app'
-import { Dashboard } from './views/Dashboard'
-import { CampaignBuilder } from './views/CampaignBuilder'
-import { CallReports } from './views/CallReports'
-import { ScriptManagement } from './views/ScriptManagement'
 import { AIInsights } from './views/AIInsights'
 import { AgentApp } from './views/AgentApp'
+import { AuthPage } from './views/AuthPage'
+import { CallReports } from './views/CallReports'
+import { CampaignBuilder } from './views/CampaignBuilder'
+import { Dashboard } from './views/Dashboard'
+import { ScriptManagement } from './views/ScriptManagement'
+import { UserManagement } from './views/UserManagement'
 
-export default function App() {
+function MainApp() {
+  const { user, logout } = useMockAuth()
   const [section, setSection] = useState<AppSection>('dashboard')
   const [mobileMenu, setMobileMenu] = useState(false)
 
+  const activeSection: AppSection =
+    user && section === 'users' && user.role !== 'ADMIN'
+      ? 'dashboard'
+      : section
+
+  if (!user) {
+    return <AuthPage />
+  }
+
+  const isAdmin = user.role === 'ADMIN'
+
   function renderSection() {
-    switch (section) {
+    switch (activeSection) {
       case 'dashboard':
         return <Dashboard />
       case 'campaign':
@@ -24,6 +40,8 @@ export default function App() {
         return <ScriptManagement />
       case 'insights':
         return <AIInsights />
+      case 'users':
+        return isAdmin ? <UserManagement /> : <Dashboard />
       case 'agent':
         return <AgentApp />
       default:
@@ -33,13 +51,24 @@ export default function App() {
 
   return (
     <AppShell
-      section={section}
+      section={activeSection}
       onSectionChange={setSection}
       mobileOpen={mobileMenu}
       onMobileOpen={() => setMobileMenu(true)}
       onMobileClose={() => setMobileMenu(false)}
+      isAdmin={isAdmin}
+      userLabel={`${user.name} (${user.email})`}
+      onLogout={logout}
     >
       {renderSection()}
     </AppShell>
+  )
+}
+
+export default function App() {
+  return (
+    <MockAuthProvider>
+      <MainApp />
+    </MockAuthProvider>
   )
 }

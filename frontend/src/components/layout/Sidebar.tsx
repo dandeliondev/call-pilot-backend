@@ -1,20 +1,34 @@
 import type { AppSection } from '../../types/app'
 
-const NAV: { id: AppSection; label: string; icon: 'dash' | 'megaphone' | 'chart' | 'doc' | 'spark' | 'phone' }[] =
-  [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dash' },
-    { id: 'campaign', label: 'Campaign Builder', icon: 'megaphone' },
-    { id: 'reports', label: 'Call Reports', icon: 'chart' },
-    { id: 'scripts', label: 'Script Management', icon: 'doc' },
-    { id: 'insights', label: 'AI Insights', icon: 'spark' },
-    { id: 'agent', label: 'Agent App', icon: 'phone' },
-  ]
+type NavIcon =
+  | 'dash'
+  | 'megaphone'
+  | 'chart'
+  | 'doc'
+  | 'spark'
+  | 'users'
+  | 'phone'
+
+const NAV: {
+  id: AppSection
+  label: string
+  icon: NavIcon
+  adminOnly?: boolean
+}[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'dash' },
+  { id: 'campaign', label: 'Campaign Builder', icon: 'megaphone' },
+  { id: 'reports', label: 'Call Reports', icon: 'chart' },
+  { id: 'scripts', label: 'Script Management', icon: 'doc' },
+  { id: 'insights', label: 'AI Insights', icon: 'spark' },
+  { id: 'users', label: 'User management', icon: 'users', adminOnly: true },
+  { id: 'agent', label: 'Agent App', icon: 'phone' },
+]
 
 function Icon({
   name,
   className,
 }: {
-  name: (typeof NAV)[number]['icon']
+  name: NavIcon
   className?: string
 }) {
   const c = className ?? 'h-5 w-5'
@@ -49,6 +63,12 @@ function Icon({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       )
+    case 'users':
+      return (
+        <svg className={c} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      )
     case 'phone':
       return (
         <svg className={c} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -66,6 +86,7 @@ interface SidebarProps {
   mobileOpen: boolean
   onMobileClose: () => void
   compact?: boolean
+  isAdmin?: boolean
 }
 
 export function Sidebar({
@@ -74,7 +95,9 @@ export function Sidebar({
   mobileOpen,
   onMobileClose,
   compact,
+  isAdmin = false,
 }: SidebarProps) {
+  const visibleNav = NAV.filter((item) => !item.adminOnly || isAdmin)
   const handleNav = (id: AppSection) => {
     onSelect(id)
     onMobileClose()
@@ -109,7 +132,7 @@ export function Sidebar({
           )}
         </div>
         <nav className="flex-1 space-y-0.5 p-2">
-          {NAV.map((item) => {
+          {visibleNav.map((item) => {
             const isActive = active === item.id
             return (
               <button
@@ -141,7 +164,7 @@ export function Sidebar({
         {!compact && (
           <div className="border-t border-border p-3">
             <p className="text-xs text-muted">
-              Simulated AI — no backend
+              Auth & users: browser demo · AI simulated
             </p>
           </div>
         )}

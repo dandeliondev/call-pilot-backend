@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { ScriptCategoryPanel } from '../components/campaign/ScriptCategoryPanel'
 import { Card } from '../components/ui/Card'
 import { SkeletonLines } from '../components/ui/Skeleton'
-import { generateCampaign, type GeneratedCampaign } from '../mock/ai'
+import { fetchPitchCategories } from '../lib/pitchApi'
+import type { GeneratedCampaign } from '../mock/ai'
 
 export function CampaignBuilder() {
   const [name, setName] = useState('')
@@ -18,17 +20,26 @@ export function CampaignBuilder() {
     setLoading(true)
     setResult(null)
     try {
-      const data = await generateCampaign({ name, description })
-      setResult(data)
-      toast.success('Campaign draft generated')
+      const categories = await fetchPitchCategories({ name, description })
+      setResult({ categories })
+      toast.success('Pitch generated')
+    } catch (e) {
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : 'Generation failed — is pitch-api running with OPENAI_API_KEY?',
+      )
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Card title="New campaign" description="Describe your goals — AI output is simulated for this demo.">
+    <div className="mx-auto max-w-7xl space-y-6">
+      <Card
+        title="New campaign"
+        description="Describe your campaign. OpenAI generates pitch segments only (greeting, intro, offer—whatever fits). Run the pitch-api service locally and set OPENAI_API_KEY."
+      >
         <div className="space-y-4">
           <div>
             <label htmlFor="cname" className="mb-1.5 block text-sm font-medium text-text">
@@ -51,8 +62,8 @@ export function CampaignBuilder() {
               id="cdesc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              placeholder="Audience, offer, constraints…"
+              rows={5}
+              placeholder="Audience, product/service, tone, constraints—the model uses this to decide segment structure."
               className="w-full resize-y rounded-xl border border-border bg-white px-4 py-2.5 text-sm outline-none ring-primary/30 transition-shadow focus:ring-2"
             />
           </div>
@@ -65,37 +76,32 @@ export function CampaignBuilder() {
             {loading && (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             )}
-            Generate with AI
+            Generate pitch (OpenAI)
           </button>
         </div>
       </Card>
 
       {loading && (
-        <div className="grid gap-4 md:grid-cols-1">
-          <Card title="Generating…">
-            <SkeletonLines rows={4} />
-          </Card>
-        </div>
+        <Card title="Generating pitch…">
+          <SkeletonLines rows={5} />
+        </Card>
       )}
 
-      {result && !loading && (
-        <div className="grid gap-4 lg:grid-cols-1">
-          <Card title="Generated call script">
-            <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm text-text">
-              {result.script}
-            </pre>
-          </Card>
-          <Card title="Objection handling">
-            <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm text-text">
-              {result.objectionHandling}
-            </pre>
-          </Card>
-          <Card title="Call flow">
-            <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm text-text">
-              {result.callFlow}
-            </pre>
-          </Card>
-        </div>
+      {result && !loading && result.categories.length > 0 && (
+        <>
+          <div
+            className="rounded-lg border border-emerald-300 bg-lime-400 px-4 py-2 text-center text-sm font-bold uppercase tracking-wide text-black"
+            role="status"
+          >
+            You are active
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {result.categories.map((cat) => (
+              <ScriptCategoryPanel key={cat.id} category={cat} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
