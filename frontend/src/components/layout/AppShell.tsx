@@ -72,7 +72,7 @@ export function AppShell({
               <div>
                 <p className="text-xs text-muted">Agent workspace</p>
                 <p className="text-sm font-semibold text-text">
-                  CallPilot — Agent App
+                  Proj-Cicero — Agent App
                 </p>
               </div>
               <button

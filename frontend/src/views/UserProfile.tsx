@@ -63,8 +63,8 @@ const TABS: { id: ProfileTab; label: string; group?: 'main' | 'extra' }[] = [
   { id: 'training', label: 'Training', group: 'extra' },
 ]
 
-const NOTES_KEY = 'callpilot_profile_notes_v1'
-const SETTINGS_KEY = 'callpilot_profile_settings_v1'
+const NOTES_KEY = 'proj-cicero_profile_notes_v1'
+const SETTINGS_KEY = 'proj-cicero_profile_settings_v1'
 
 type StoredNote = { id: string; body: string; at: string; author: string }
 type StoredSettings = {

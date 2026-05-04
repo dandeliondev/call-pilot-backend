@@ -164,11 +164,11 @@ export function Sidebar({
       >
         <div className="flex h-16 items-center gap-2 border-b border-slate-700/60 px-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white shadow-lg shadow-primary/25">
-            CP
+            PC
           </div>
           {!compact && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">CallPilot</p>
+              <p className="truncate text-sm font-semibold text-white">Proj-Cicero</p>
               <p className="truncate text-xs text-slate-400">Demo</p>
             </div>
           )}

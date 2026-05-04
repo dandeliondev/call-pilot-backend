@@ -44,8 +44,8 @@ export interface MockStoredUser {
 
 export type MockPublicUser = Omit<MockStoredUser, 'password'>
 
-const KEY_USERS_V1 = 'callpilot_demo_users_v1'
-const KEY_USERS = 'callpilot_demo_users_v2'
+const KEY_USERS_V1 = 'proj-cicero_demo_users_v1'
+const KEY_USERS = 'proj-cicero_demo_users_v2'
 
 export function defaultPermissions(role: MockRole): UserPermissions {
   switch (role) {
@@ -247,11 +247,11 @@ export function saveUsers(users: MockStoredUser[]): void {
 }
 
 export function getSessionUserId(): string | null {
-  return localStorage.getItem('callpilot_demo_session_user_id_v1')
+  return localStorage.getItem('proj-cicero_demo_session_user_id_v1')
 }
 
 export function setSessionUserId(id: string | null): void {
-  const KEY_SESSION = 'callpilot_demo_session_user_id_v1'
+  const KEY_SESSION = 'proj-cicero_demo_session_user_id_v1'
   if (id) localStorage.setItem(KEY_SESSION, id)
   else localStorage.removeItem(KEY_SESSION)
 }

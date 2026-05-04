@@ -42,7 +42,7 @@ export function Header({
         </button>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
-            CallPilot (Demo Version)
+            Proj-Cicero (Demo Version)
           </p>
           <h1 className="text-lg font-semibold text-text md:text-xl">
             {pageTitle ?? TITLES[section]}

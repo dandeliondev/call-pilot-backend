@@ -1,6 +1,6 @@
 import type { CampaignLifecycleState, ManagedCampaign } from '../types/app'
 
-const KEY = 'callpilot_campaigns_v3'
+const KEY = 'proj-cicero_campaigns_v3'
 
 /** Cached snapshot so `loadCampaigns()` returns a stable reference for useSyncExternalStore. */
 let cachedCampaigns: ManagedCampaign[] | null = null

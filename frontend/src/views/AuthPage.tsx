@@ -38,9 +38,9 @@ export function AuthPage() {
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white">
-            CP
+            PC
           </div>
-          <h1 className="text-xl font-semibold text-text">CallPilot</h1>
+          <h1 className="text-xl font-semibold text-text">Proj-Cicero</h1>
           <p className="text-sm text-muted">Authentication UI (mock — browser only)</p>
         </div>
         <Card>
