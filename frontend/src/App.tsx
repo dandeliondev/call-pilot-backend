@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { MockAuthProvider } from './context/MockAuthProvider'
 import { useMockAuth } from './hooks/useMockAuth'
@@ -42,16 +42,21 @@ function MainApp() {
   const [campaignNav, setCampaignNav] = useState<CampaignNav>({ mode: 'list' })
   const [mobileMenu, setMobileMenu] = useState(false)
 
+  // Keep navigation state deterministic across auth transitions.
+  useEffect(() => {
+    setSection('dashboard')
+    setReportsMenuId('overview')
+    setProfileUserId(null)
+    setCampaignNav({ mode: 'list' })
+    setMobileMenu(false)
+  }, [user?.id])
+
   const activeSection: AppSection =
     user && section === 'users' && user.role !== 'ADMIN'
       ? 'dashboard'
       : section
 
-  if (!user) {
-    return <AuthPage />
-  }
-
-  const isAdmin = user.role === 'ADMIN'
+  const isAdmin = user?.role === 'ADMIN'
 
   function handleSectionChange(s: AppSection) {
     setSection(s)
@@ -90,6 +95,10 @@ function MainApp() {
     if (activeSection === 'live') return 'Live Monitor'
     return undefined
   }, [activeSection, reportsMenuId, profileUserId, directory, campaignNav])
+
+  if (!user) {
+    return <AuthPage />
+  }
 
   function renderSection() {
     switch (activeSection) {
@@ -140,7 +149,7 @@ function MainApp() {
       case 'agent':
         return <AgentApp />
       default:
-        return null
+        return <Dashboard onOpenLive={() => setSection('live')} />
     }
   }
 

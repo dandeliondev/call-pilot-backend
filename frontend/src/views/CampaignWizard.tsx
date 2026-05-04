@@ -33,6 +33,7 @@ interface CampaignWizardProps {
 
 export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   const [step, setStep] = useState(0)
+  const [isGeneratingRandomBrief, setIsGeneratingRandomBrief] = useState(false)
 
   const [brief, setBrief] = useState('')
   /** Mock “AI” draft fields — shown on Describe; editable after generation. */
@@ -94,12 +95,18 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     )
   }
 
-  function fillRandomDemoBrief() {
-    const i = Math.floor(Math.random() * DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS.length)
-    const next = DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS[i]!
-    setBrief(next)
-    applyAiFieldsFromBrief(next)
-    toast.message('Random description and AI draft applied — review audience & messaging on Scripts.')
+  async function fillRandomDemoBrief() {
+    setIsGeneratingRandomBrief(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const i = Math.floor(Math.random() * DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS.length)
+      const next = DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS[i]!
+      setBrief(next)
+      applyAiFieldsFromBrief(next)
+      toast.message('Random description and AI draft applied — review audience & messaging on Scripts.')
+    } finally {
+      setIsGeneratingRandomBrief(false)
+    }
   }
 
   function finish(mode: 'draft' | 'launch') {
@@ -195,9 +202,12 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
             <button
               type="button"
               onClick={fillRandomDemoBrief}
+              disabled={isGeneratingRandomBrief}
               className="rounded-lg border border-dashed border-border bg-slate-50 px-3 py-2 text-xs font-medium text-muted hover:border-primary/40 hover:bg-primary/5 hover:text-text"
             >
-              Generate random campaign description using AI (demo)
+              {isGeneratingRandomBrief
+                ? 'AI is thinking...'
+                : 'Generate random campaign description using AI (demo)'}
             </button>
           </div>
           <textarea
