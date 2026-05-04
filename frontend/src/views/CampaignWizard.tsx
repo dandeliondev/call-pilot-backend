@@ -6,6 +6,7 @@ import {
   generateCampaignFromDescription,
 } from '../lib/campaignAiMock'
 import { createCampaign, listKnownAgents } from '../mock/campaignsStore'
+import { DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS } from '../mock/campaignRandomDescriptions'
 import { initialScripts } from '../mock/data'
 import { SoundboardBundlePreview } from '../components/campaign/SoundboardBundlePreview'
 import type {
@@ -14,7 +15,7 @@ import type {
   ManagedCampaign,
 } from '../types/app'
 
-const STEPS = ['Describe', 'Configure', 'Resources', 'Scripts', 'Launch'] as const
+const STEPS = ['Describe', 'Scripts', 'Configure', 'Resources', 'Launch'] as const
 
 const TIMEZONES = [
   'America/New_York',
@@ -23,30 +24,6 @@ const TIMEZONES = [
   'America/Los_Angeles',
   'UTC',
   'Europe/London',
-] as const
-
-const TEMPLATES = [
-  {
-    id: 'cold',
-    name: 'Cold outreach',
-    blurb: 'Cold outbound to qualified SMB leads with a soft permission opener.',
-  },
-  {
-    id: 'renewal',
-    name: 'Renewal',
-    blurb:
-      'Outbound campaign to offer renewal discount for policies nearing expiry — emphasize bundle value.',
-  },
-  {
-    id: 'winback',
-    name: 'Win-back',
-    blurb: 'Re-engage customers who recently churned or quoted a competitor.',
-  },
-  {
-    id: 'demo',
-    name: 'Demo booking',
-    blurb: 'Inbound-style campaign to qualify interest and land calendar demos.',
-  },
 ] as const
 
 interface CampaignWizardProps {
@@ -58,7 +35,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   const [step, setStep] = useState(0)
 
   const [brief, setBrief] = useState('')
-  const [aiGenerated, setAiGenerated] = useState(false)
+  /** Mock “AI” draft fields — shown on Describe; editable after generation. */
   const [audience, setAudience] = useState('')
   const [objective, setObjective] = useState('')
   const [suggestedScript, setSuggestedScript] = useState('')
@@ -83,28 +60,20 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     null,
   )
 
-  function runAi() {
-    if (!brief.trim()) {
-      toast.error('Describe what you want to achieve first.')
-      return
-    }
-    const d = generateCampaignFromDescription(brief)
-    setAudience(d.audience)
-    setObjective(d.objective)
-    setSuggestedScript(d.suggestedScript)
-    setTone(d.tone)
-    setAiGenerated(true)
-    if (!name.trim()) {
-      const hint = brief.slice(0, 42).trim()
-      setName(hint ? `${hint}${brief.length > 42 ? '…' : ''}` : 'New campaign')
-    }
-    toast.success('AI draft ready — review and tune below.')
-  }
-
   function toggleAgent(a: string) {
     setSelectedAgents((prev) =>
       prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a],
     )
+  }
+
+  function applyAiFieldsFromBrief(text: string) {
+    const t = text.trim()
+    if (!t) return
+    const d = generateCampaignFromDescription(t)
+    setAudience(d.audience)
+    setObjective(d.objective)
+    setSuggestedScript(d.suggestedScript)
+    setTone(d.tone)
   }
 
   function runSoundboardGenerate() {
@@ -112,12 +81,12 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       toast.error('Add a campaign brief on “Describe” first, or go back to that step.')
       return
     }
-    const fallback = generateCampaignFromDescription(brief)
+    const draft = generateCampaignFromDescription(brief)
     const bundle = generateAgentSoundboard({
       description: brief,
-      audience: audience.trim() || fallback.audience,
-      objective: objective.trim() || fallback.objective,
-      tone: tone.trim() || fallback.tone,
+      audience: audience.trim() || draft.audience,
+      objective: objective.trim() || draft.objective,
+      tone: tone.trim() || draft.tone,
     })
     setSoundboardBundle(bundle)
     toast.success(
@@ -125,11 +94,12 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     )
   }
 
-  function applyTemplate(id: (typeof TEMPLATES)[number]['id']) {
-    const t = TEMPLATES.find((x) => x.id === id)
-    if (!t) return
-    setBrief(t.blurb)
-    toast.message(`Template “${t.name}” loaded — click Generate with AI.`)
+  function fillRandomDemoBrief() {
+    const i = Math.floor(Math.random() * DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS.length)
+    const next = DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS[i]!
+    setBrief(next)
+    applyAiFieldsFromBrief(next)
+    toast.message('Random description and AI draft applied — review audience & messaging on Scripts.')
   }
 
   function finish(mode: 'draft' | 'launch') {
@@ -162,6 +132,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       status = 'active'
     }
 
+    const derived = generateCampaignFromDescription(brief)
     const record: ManagedCampaign = {
       id,
       name: name.trim(),
@@ -177,10 +148,10 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       scriptName: scriptSource === 'library' ? scriptMeta?.name ?? null : null,
       callLimitDaily,
       pacingSecondsBetweenCalls,
-      aiAudience: audience || generateCampaignFromDescription(brief).audience,
-      aiObjective: objective || generateCampaignFromDescription(brief).objective,
-      aiSuggestedScript: suggestedScript || generateCampaignFromDescription(brief).suggestedScript,
-      aiTone: tone || generateCampaignFromDescription(brief).tone,
+      aiAudience: audience.trim() || derived.audience,
+      aiObjective: objective.trim() || derived.objective,
+      aiSuggestedScript: suggestedScript.trim() || derived.suggestedScript,
+      aiTone: tone.trim() || derived.tone,
       abScriptId: scriptSource === 'library' ? abScriptId || null : null,
       templateId: null,
       agentSoundboard: scriptSource === 'soundboard' ? soundboardBundle ?? undefined : undefined,
@@ -218,20 +189,16 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       {step === 0 && (
         <Card
           title="Describe your campaign"
-          description="Plain language — AI proposes audience, objective, script outline, and tone (demo logic, no API key required)."
+          description="Plain-language brief. Use the demo button for sample copy. Audience, objective, tone, and script outline are set on the next step."
         >
-          <div className="mb-4 flex flex-wrap gap-2">
-            <span className="w-full text-xs font-medium text-muted">Templates</span>
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => applyTemplate(t.id)}
-                className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
-              >
-                {t.name}
-              </button>
-            ))}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={fillRandomDemoBrief}
+              className="rounded-lg border border-dashed border-border bg-slate-50 px-3 py-2 text-xs font-medium text-muted hover:border-primary/40 hover:bg-primary/5 hover:text-text"
+            >
+              Generate random campaign description using AI (demo)
+            </button>
           </div>
           <textarea
             className="min-h-[140px] w-full rounded-xl border border-border px-4 py-3 text-sm"
@@ -239,205 +206,13 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
           />
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={runAi}
-              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:opacity-95"
-            >
-              ✨ Generate with AI
-            </button>
-            {!aiGenerated && (
-              <p className="text-xs text-muted self-center">
-                Tip: one paragraph is enough — you’ll tune details next.
-              </p>
-            )}
-          </div>
-
-          {aiGenerated && (
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <label className="block text-sm">
-                <span className="text-muted">Target audience</span>
-                <textarea
-                  className="mt-1 min-h-[88px] w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  value={audience}
-                  onChange={(e) => setAudience(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-muted">Call objective</span>
-                <textarea
-                  className="mt-1 min-h-[88px] w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  value={objective}
-                  onChange={(e) => setObjective(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm md:col-span-2">
-                <span className="text-muted">Suggested script outline</span>
-                <textarea
-                  className="mt-1 min-h-[100px] w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  value={suggestedScript}
-                  onChange={(e) => setSuggestedScript(e.target.value)}
-                />
-              </label>
-              <label className="block text-sm md:col-span-2">
-                <span className="text-muted">Tone</span>
-                <input
-                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  value={tone}
-                  onChange={(e) => setTone(e.target.value)}
-                />
-              </label>
-            </div>
-          )}
 
           <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setStep(1)}
-              disabled={!aiGenerated}
+              disabled={!brief.trim()}
               className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              Next: Configure
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {step === 1 && (
-        <Card title="Configure" description="Name, channel type, schedule, and timezone.">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block text-sm md:col-span-2">
-              <span className="text-muted">Campaign name</span>
-              <input
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-muted">Type</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={type}
-                onChange={(e) =>
-                  setType(e.target.value as ManagedCampaign['type'])
-                }
-              >
-                <option value="outbound">Outbound</option>
-                <option value="inbound">Inbound</option>
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-muted">Start (local)</span>
-              <input
-                type="datetime-local"
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={scheduleLocal}
-                onChange={(e) => setScheduleLocal(e.target.value)}
-              />
-            </label>
-            <label className="block text-sm md:col-span-2">
-              <span className="text-muted">Timezone</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-              >
-                {TIMEZONES.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="mt-6 flex justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => setStep(0)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Next: Resources
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {step === 2 && (
-        <Card
-          title="Assign resources"
-          description="Agents and dialing limits. Scripts are configured on the next step."
-        >
-          <div className="space-y-6">
-            <div>
-              <p className="mb-2 text-sm font-medium text-text">Agents / teams</p>
-              <div className="flex flex-wrap gap-2">
-                {agentsPool.map((a) => (
-                  <label
-                    key={a}
-                    className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                      selectedAgents.includes(a)
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={selectedAgents.includes(a)}
-                      onChange={() => toggleAgent(a)}
-                    />
-                    {a}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className="text-muted">Daily call limit</span>
-                <input
-                  type="number"
-                  min={1}
-                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  value={callLimitDaily}
-                  onChange={(e) => setCallLimitDaily(Number(e.target.value) || 1)}
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-muted">Pacing (seconds between calls)</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                  value={pacingSecondsBetweenCalls}
-                  onChange={(e) =>
-                    setPacingSecondsBetweenCalls(Number(e.target.value) || 0)
-                  }
-                />
-              </label>
-            </div>
-          </div>
-          <div className="mt-6 flex justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep(3)}
-              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
             >
               Next: Scripts
             </button>
@@ -445,12 +220,74 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
         </Card>
       )}
 
-      {step === 3 && (
+      {step === 1 && (
         <Card
           title="Scripts"
-          description="Scripts are soundboards (shortcut panels). Use one already in your library, or generate Introduction and Pitch from your brief; other panels stay placeholder lines for now."
+          description="Refine audience and messaging from your brief, then choose a soundboard. Mock AI is deterministic (no API key)."
         >
           <div className="space-y-6">
+            <div>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-text">Audience & messaging</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!brief.trim()) {
+                      toast.error('Add a description on the previous step first.')
+                      return
+                    }
+                    applyAiFieldsFromBrief(brief)
+                    toast.success('AI fields updated from your description.')
+                  }}
+                  disabled={!brief.trim()}
+                  className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-text hover:bg-slate-50 disabled:opacity-40"
+                >
+                  Apply AI to fields
+                </button>
+              </div>
+              <p className="mb-4 text-xs text-muted">
+                Filled automatically if you used the random demo on Describe, or click Apply to generate from your brief.
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block text-sm">
+                  <span className="text-muted">Target audience</span>
+                  <textarea
+                    className="mt-1 min-h-[88px] w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={audience}
+                    onChange={(e) => setAudience(e.target.value)}
+                    placeholder="AI-generated from your brief, or edit"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-muted">Call objective</span>
+                  <textarea
+                    className="mt-1 min-h-[88px] w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={objective}
+                    onChange={(e) => setObjective(e.target.value)}
+                    placeholder="AI-generated from your brief, or edit"
+                  />
+                </label>
+                <label className="block text-sm md:col-span-2">
+                  <span className="text-muted">Suggested script outline</span>
+                  <textarea
+                    className="mt-1 min-h-[100px] w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={suggestedScript}
+                    onChange={(e) => setSuggestedScript(e.target.value)}
+                    placeholder="AI-generated from your brief, or edit"
+                  />
+                </label>
+                <label className="block text-sm md:col-span-2">
+                  <span className="text-muted">Tone</span>
+                  <input
+                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={tone}
+                    onChange={(e) => setTone(e.target.value)}
+                    placeholder="AI-generated from your brief, or edit"
+                  />
+                </label>
+              </div>
+            </div>
+
             <div className="rounded-xl border border-border bg-slate-50/80 p-4">
               <p className="text-sm font-medium text-text">Script setup</p>
               <p className="mt-1 text-xs text-muted">
@@ -535,8 +372,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
                     ✨ Generate from brief
                   </button>
                   <p className="text-xs text-muted">
-                    Uses your brief plus audience / objective / tone from Describe (filled automatically
-                    if you ran “Generate with AI” there).
+                    Uses your brief plus the audience & messaging fields above when set; otherwise derives them from the brief.
                   </p>
                 </div>
                 {soundboardBundle ? (
@@ -557,7 +393,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
           <div className="mt-6 flex justify-between gap-2">
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={() => setStep(0)}
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
               Back
@@ -569,8 +405,149 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
                   toast.error('Generate your script before continuing.')
                   return
                 }
-                setStep(4)
+                setStep(2)
               }}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Next: Configure
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {step === 2 && (
+        <Card title="Configure" description="Name, channel type, schedule, and timezone.">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block text-sm md:col-span-2">
+              <span className="text-muted">Campaign name</span>
+              <input
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted">Type</span>
+              <select
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={type}
+                onChange={(e) =>
+                  setType(e.target.value as ManagedCampaign['type'])
+                }
+              >
+                <option value="outbound">Outbound</option>
+                <option value="inbound">Inbound</option>
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted">Start (local)</span>
+              <input
+                type="datetime-local"
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={scheduleLocal}
+                onChange={(e) => setScheduleLocal(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm md:col-span-2">
+              <span className="text-muted">Timezone</span>
+              <select
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="mt-6 flex justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Next: Resources
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {step === 3 && (
+        <Card
+          title="Assign resources"
+          description="Agents and dialing limits."
+        >
+          <div className="space-y-6">
+            <div>
+              <p className="mb-2 text-sm font-medium text-text">Agents / teams</p>
+              <div className="flex flex-wrap gap-2">
+                {agentsPool.map((a) => (
+                  <label
+                    key={a}
+                    className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
+                      selectedAgents.includes(a)
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selectedAgents.includes(a)}
+                      onChange={() => toggleAgent(a)}
+                    />
+                    {a}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="text-muted">Daily call limit</span>
+                <input
+                  type="number"
+                  min={1}
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  value={callLimitDaily}
+                  onChange={(e) => setCallLimitDaily(Number(e.target.value) || 1)}
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-muted">Pacing (seconds between calls)</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  value={pacingSecondsBetweenCalls}
+                  onChange={(e) =>
+                    setPacingSecondsBetweenCalls(Number(e.target.value) || 0)
+                  }
+                />
+              </label>
+            </div>
+          </div>
+          <div className="mt-6 flex justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(4)}
               className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
             >
               Next: Launch
