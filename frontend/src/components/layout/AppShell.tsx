@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
-import type { AppSection } from '../../types/app'
+import type { AppSection, ReportsMenuId } from '../../types/app'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 
 interface AppShellProps {
   section: AppSection
+  reportsMenuId: ReportsMenuId
+  pageTitle?: string
   onSectionChange: (s: AppSection) => void
+  onReportsMenuNavigate: (id: ReportsMenuId) => void
   mobileOpen: boolean
   onMobileOpen: () => void
   onMobileClose: () => void
@@ -17,7 +20,10 @@ interface AppShellProps {
 
 export function AppShell({
   section,
+  reportsMenuId,
+  pageTitle,
   onSectionChange,
+  onReportsMenuNavigate,
   mobileOpen,
   onMobileOpen,
   onMobileClose,
@@ -32,7 +38,9 @@ export function AppShell({
     <div className="flex min-h-screen bg-surface">
       <Sidebar
         active={section}
+        reportsMenuId={reportsMenuId}
         onSelect={onSectionChange}
+        onReportsMenuNavigate={onReportsMenuNavigate}
         mobileOpen={mobileOpen}
         onMobileClose={onMobileClose}
         compact={isAgent}
@@ -42,6 +50,7 @@ export function AppShell({
         {!isAgent && (
           <Header
             section={section}
+            pageTitle={pageTitle}
             onMenuClick={onMobileOpen}
             userLabel={userLabel}
             onLogout={onLogout}

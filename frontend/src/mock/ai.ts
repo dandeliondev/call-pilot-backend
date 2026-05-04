@@ -1,3 +1,8 @@
+import type {
+  ScriptGenerateGoal,
+  ScriptItem,
+  ScriptVersionSnapshot,
+} from '../types/app'
 import { callReports } from './data'
 
 /** Single library line: shortcut key + label text (call-center script style). */
@@ -18,14 +23,16 @@ export interface GeneratedCampaign {
 }
 
 export interface ScoreBreakdown {
-  clarity: number
-  empathy: number
-  compliance: number
+  greeting: number
+  objectionHandling: number
+  closing: number
 }
 
 export interface EvaluationResult {
   scoreBreakdown: ScoreBreakdown
   feedback: string[]
+  /** Short, specific “why” lines for the call (demo copy). */
+  whyInsights: string[]
 }
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -145,26 +152,60 @@ export async function generateCampaign(input: {
   }
 }
 
+function whyForCall(
+  row: (typeof callReports)[number] | undefined,
+): string[] {
+  if (!row) {
+    return [
+      'Model could not match a stored call — showing generic coaching notes.',
+    ]
+  }
+  const d = row.durationSeconds
+  const out: string[] = []
+  if (d < 90) {
+    out.push('Call ended very early — opportunity to tighten the opening or confirm contact quality.')
+  }
+  if (row.sentiment === 'Negative') {
+    out.push('Customer disengaged after a key moment — check tone and pace in the last third of the call.')
+  }
+  if (row.outcome === 'Declined' && /price|expensive|premium|cost/i.test(row.transcript)) {
+    out.push('Customer lost interest after pricing was raised — try value framing before numbers next time.')
+  }
+  if (row.outcome === 'Booked' || row.outcome === 'Qualified') {
+    out.push('Strong discovery and next-step clarity — good template for the team library.')
+  } else if (row.outcome === 'Follow-up') {
+    out.push('Agent missed a clean calendar close — offer two specific slots before ending.')
+  }
+  if (out.length < 2) {
+    out.push('Rapport was adequate; objection handling could be more specific to the customer’s exact words.')
+  }
+  if (out.length < 3) {
+    out.push('Consider echoing the customer’s goal in the first 20 seconds to lock attention.')
+  }
+  return out.slice(0, 3)
+}
+
 export async function evaluateCall(callId: string): Promise<EvaluationResult> {
   await delay(700 + Math.random() * 500)
   const row = callReports.find((c) => c.id === callId)
   const base = row?.aiScore ?? 80
   const variance = () =>
-    Math.max(60, Math.min(98, base + Math.round((Math.random() - 0.5) * 10)))
+    Math.max(55, Math.min(98, base + Math.round((Math.random() - 0.5) * 8)))
 
   return {
     scoreBreakdown: {
-      clarity: variance(),
-      empathy: variance(),
-      compliance: variance(),
+      greeting: Math.max(55, Math.min(98, base + Math.round((Math.random() - 0.4) * 8))),
+      objectionHandling: variance(),
+      closing: variance(),
     },
     feedback: [
       row
-        ? `Strong alignment with observed outcome: ${row.outcome}.`
+        ? `Outcome label: ${row.outcome} — use this as the ground truth for coaching.`
         : 'Balanced pacing with clear next-step asks.',
-      'Consider shortening monologue segments to under 25 seconds for higher engagement.',
-      'Compliance note: consent language was explicit before recording-sensitive sections.',
+      'Tighten monologue blocks: aim for under 25 seconds per agent turn in the first 3 minutes.',
+      'Confirm consent and recording rules where required by your program.',
     ],
+    whyInsights: whyForCall(row),
   }
 }
 
@@ -185,6 +226,103 @@ export function suggestNextLine(): string {
 /** Simulated delay for “generate script version” actions (impure; kept out of components). */
 export async function scriptVersionDelay(): Promise<void> {
   await delay(1400 + Math.random() * 600)
+}
+
+const GOAL_FEEDBACK: Record<ScriptGenerateGoal, (name: string) => string> = {
+  conversion: (name) =>
+    `Lift trials show tighter discovery-to-ask timing improves booked outcomes for “${name}”. Keep proof points inside the first two minutes and restate the customer’s goal before any dollar figures — conversion climbs when the ask feels inevitable, not bolted on.`,
+  objections: (name) =>
+    `Listeners stay engaged on “${name}” when reps acknowledge friction early. Price objections spike mid-call—insert empathy bridges that mirror the prospect’s words before answering; this reduces defensive reactions after pricing.`,
+  shorter: (name) =>
+    `Shorter talk tracks for “${name}” reduce mid-call fatigue. Agents who qualify in under 90 seconds see fewer abrupt hang-ups during pitch—trim monologue turns while preserving rapport checkpoints.`,
+  closing: (name) =>
+    `Closing sections on “${name}” convert better with a forced choice between two next steps plus a concise recap of value. Replace open-ended “does that work?” wraps with calendar-ready alternatives.`,
+}
+
+/** Applies a simulated AI revision pass (demo metrics + copy). */
+export function upgradeScriptDraft(
+  script: ScriptItem,
+  goal: ScriptGenerateGoal,
+): ScriptItem {
+  const jitter = () => (Math.random() - 0.5)
+  const nextV = script.version + 1
+
+  let conversionPct = script.conversionPct
+  let avgDurationMin = script.avgDurationMin
+  let sentimentScore = script.sentimentScore
+  let performancePct = script.performancePct
+  const lastSnap = script.versionHistory[script.versionHistory.length - 1]
+  let engagementPct = lastSnap?.engagementPct ?? 68
+
+  switch (goal) {
+    case 'conversion':
+      conversionPct = Math.min(48, conversionPct + 1.4 + jitter() * 2.5)
+      performancePct = Math.min(96, performancePct + 2 + jitter() * 2)
+      engagementPct = Math.min(92, engagementPct + 2 + jitter() * 2)
+      break
+    case 'objections':
+      sentimentScore = Math.min(94, sentimentScore + 2.5 + jitter() * 2)
+      conversionPct = Math.min(48, conversionPct + 0.9 + jitter() * 1.5)
+      performancePct = Math.min(96, performancePct + 1 + jitter())
+      engagementPct = Math.min(92, engagementPct + 1 + jitter())
+      break
+    case 'shorter':
+      avgDurationMin = Math.max(3.2, avgDurationMin - 0.32 + jitter() * 0.12)
+      engagementPct = Math.min(92, engagementPct + 1.8 + jitter())
+      performancePct = Math.min(96, performancePct + 1 + jitter())
+      break
+    case 'closing':
+      conversionPct = Math.min(48, conversionPct + 2 + jitter() * 2)
+      performancePct = Math.min(96, performancePct + 2.5 + jitter() * 2)
+      engagementPct = Math.min(92, engagementPct + 2 + jitter() * 2)
+      break
+  }
+
+  conversionPct = Math.round(conversionPct * 10) / 10
+  avgDurationMin = Math.round(avgDurationMin * 10) / 10
+  sentimentScore = Math.round(Math.min(96, sentimentScore))
+
+  const aiScore = Math.min(
+    97,
+    Math.round((sentimentScore + performancePct + engagementPct) / 3),
+  )
+
+  const snapshot: ScriptVersionSnapshot = {
+    version: nextV,
+    conversionPct,
+    avgDurationMin,
+    aiScore,
+    engagementPct: Math.round(engagementPct),
+  }
+
+  const snippetHints: Record<ScriptGenerateGoal, string> = {
+    conversion: ' [AI: tightened discovery→ask; added proof hooks]',
+    objections: ' [AI: empathy bridges before price]',
+    shorter: ' [AI: trimmed talk tracks]',
+    closing: ' [AI: stronger double-slot close]',
+  }
+
+  const trendBump = script.performanceTrend.map((p, i, arr) =>
+    i === arr.length - 1
+      ? {
+          ...p,
+          value: Math.min(95, p.value + 1 + Math.round(Math.random())),
+        }
+      : p,
+  )
+
+  return {
+    ...script,
+    version: nextV,
+    conversionPct: snapshot.conversionPct,
+    avgDurationMin: snapshot.avgDurationMin,
+    sentimentScore,
+    performancePct: Math.round(performancePct),
+    snippet: script.snippet + snippetHints[goal],
+    aiFeedback: GOAL_FEEDBACK[goal](script.name),
+    versionHistory: [...script.versionHistory, snapshot],
+    performanceTrend: trendBump,
+  }
 }
 
 export function pickSuggestions(count = 4): string[] {

@@ -2,8 +2,9 @@ import type { AppSection } from '../../types/app'
 
 const TITLES: Record<AppSection, string> = {
   dashboard: 'Dashboard',
-  campaign: 'Campaign Builder',
-  reports: 'Call Reports',
+  campaign: 'Campaign management',
+  live: 'Live Monitor',
+  reports: 'Reports',
   scripts: 'Script Management',
   insights: 'AI Insights',
   users: 'User management',
@@ -12,12 +13,20 @@ const TITLES: Record<AppSection, string> = {
 
 interface HeaderProps {
   section: AppSection
+  /** When set, overrides the default title for this section (e.g. report sub-views). */
+  pageTitle?: string
   onMenuClick: () => void
   userLabel?: string
   onLogout?: () => void
 }
 
-export function Header({ section, onMenuClick, userLabel, onLogout }: HeaderProps) {
+export function Header({
+  section,
+  pageTitle,
+  onMenuClick,
+  userLabel,
+  onLogout,
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-border bg-white/90 px-4 backdrop-blur-md md:px-6">
       <div className="flex items-center gap-3">
@@ -36,7 +45,7 @@ export function Header({ section, onMenuClick, userLabel, onLogout }: HeaderProp
             CallPilot (Demo Version)
           </p>
           <h1 className="text-lg font-semibold text-text md:text-xl">
-            {TITLES[section]}
+            {pageTitle ?? TITLES[section]}
           </h1>
         </div>
       </div>

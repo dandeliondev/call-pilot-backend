@@ -11,6 +11,7 @@ interface DataTableProps<T extends object> {
   rows: T[]
   getRowKey: (row: T) => string
   onRowClick?: (row: T) => void
+  getRowClassName?: (row: T) => string | undefined
 }
 
 export function DataTable<T extends object>({
@@ -18,6 +19,7 @@ export function DataTable<T extends object>({
   rows,
   getRowKey,
   onRowClick,
+  getRowClassName,
 }: DataTableProps<T>) {
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-white shadow-[var(--shadow-card)]">
@@ -40,11 +42,11 @@ export function DataTable<T extends object>({
               <tr
                 key={getRowKey(row)}
                 onClick={() => onRowClick?.(row)}
-                className={
+                className={`${
                   onRowClick
                     ? 'cursor-pointer border-b border-border/80 transition-colors last:border-0 hover:bg-primary/5'
                     : 'border-b border-border/80 last:border-0'
-                }
+                } ${getRowClassName?.(row) ?? ''}`}
               >
                 {columns.map((col) => (
                   <td key={String(col.key)} className="px-4 py-3 text-text">

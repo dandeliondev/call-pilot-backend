@@ -1,27 +1,41 @@
-import type { AppSection } from '../../types/app'
+import { useEffect, useState } from 'react'
+import type { AppSection, ReportsMenuId } from '../../types/app'
 
 type NavIcon =
   | 'dash'
   | 'megaphone'
+  | 'live'
   | 'chart'
   | 'doc'
   | 'spark'
   | 'users'
   | 'phone'
 
-const NAV: {
+const NAV_MAIN: {
   id: AppSection
   label: string
   icon: NavIcon
   adminOnly?: boolean
 }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dash' },
-  { id: 'campaign', label: 'Campaign Builder', icon: 'megaphone' },
-  { id: 'reports', label: 'Call Reports', icon: 'chart' },
+  { id: 'campaign', label: 'Campaigns', icon: 'megaphone' },
+  { id: 'live', label: 'Live Monitor', icon: 'live' },
   { id: 'scripts', label: 'Script Management', icon: 'doc' },
-  { id: 'insights', label: 'AI Insights', icon: 'spark' },
   { id: 'users', label: 'User management', icon: 'users', adminOnly: true },
   { id: 'agent', label: 'Agent App', icon: 'phone' },
+]
+
+/** 📊 Reports Menu — order matches product spec */
+const REPORT_MENU: { id: ReportsMenuId; label: string }[] = [
+  { id: 'overview', label: 'Overview (Dashboard)' },
+  { id: 'calls', label: 'Calls' },
+  { id: 'conversion', label: 'Conversion' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'scripts', label: 'Scripts' },
+  { id: 'insights', label: 'AI Insights' },
+  { id: 'campaigns', label: 'Campaigns' },
+  { id: 'funnel', label: 'Funnel' },
+  { id: 'sentiment', label: 'Sentiment' },
 ]
 
 function Icon({
@@ -43,6 +57,12 @@ function Icon({
       return (
         <svg className={c} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.018c1.131 0 2.221.427 3.046 1.195M18 13a3 3 0 110-6m0 6v4m0 0v4m0-4h4m-4 0H6" />
+        </svg>
+      )
+    case 'live':
+      return (
+        <svg className={c} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
         </svg>
       )
     case 'chart':
@@ -80,9 +100,21 @@ function Icon({
   }
 }
 
+function isReportsSubActive(
+  active: AppSection,
+  reportsMenuId: ReportsMenuId,
+  id: ReportsMenuId,
+): boolean {
+  if (id === 'overview') return active === 'dashboard'
+  if (id === 'insights') return active === 'insights'
+  return active === 'reports' && reportsMenuId === id
+}
+
 interface SidebarProps {
   active: AppSection
+  reportsMenuId: ReportsMenuId
   onSelect: (section: AppSection) => void
+  onReportsMenuNavigate: (id: ReportsMenuId) => void
   mobileOpen: boolean
   onMobileClose: () => void
   compact?: boolean
@@ -91,13 +123,25 @@ interface SidebarProps {
 
 export function Sidebar({
   active,
+  reportsMenuId,
   onSelect,
+  onReportsMenuNavigate,
   mobileOpen,
   onMobileClose,
   compact,
   isAdmin = false,
 }: SidebarProps) {
-  const visibleNav = NAV.filter((item) => !item.adminOnly || isAdmin)
+  const reportsMenuActive =
+    active === 'reports' || active === 'dashboard' || active === 'insights'
+
+  const [reportsOpen, setReportsOpen] = useState(true)
+
+  useEffect(() => {
+    if (reportsMenuActive) setReportsOpen(true)
+  }, [reportsMenuActive])
+
+  const visibleMain = NAV_MAIN.filter((item) => !item.adminOnly || isAdmin)
+
   const handleNav = (id: AppSection) => {
     onSelect(id)
     onMobileClose()
@@ -131,8 +175,99 @@ export function Sidebar({
             </div>
           )}
         </div>
-        <nav className="flex-1 space-y-0.5 p-2">
-          {visibleNav.map((item) => {
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
+          {visibleMain.slice(0, 3).map((item) => {
+            const isActive = active === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleNav(item.id)}
+                title={compact ? item.label : undefined}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted hover:bg-slate-50 hover:text-text'
+                }`}
+              >
+                <Icon
+                  name={item.icon}
+                  className={`h-5 w-5 shrink-0 ${isActive ? 'text-primary' : ''}`}
+                />
+                {!compact && <span className="truncate">{item.label}</span>}
+              </button>
+            )
+          })}
+
+          <div className="pt-0.5">
+            {!compact && (
+              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                📊 Reports Menu
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (compact) {
+                  onReportsMenuNavigate('calls')
+                  onMobileClose()
+                } else {
+                  setReportsOpen((o) => !o)
+                }
+              }}
+              title={compact ? 'Reports' : undefined}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                reportsMenuActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted hover:bg-slate-50 hover:text-text'
+              }`}
+            >
+              <Icon
+                name="chart"
+                className={`h-5 w-5 shrink-0 ${reportsMenuActive ? 'text-primary' : ''}`}
+              />
+              {!compact && (
+                <>
+                  <span className="flex-1 truncate text-left">Reports</span>
+                  <svg
+                    className={`h-4 w-4 shrink-0 transition-transform ${reportsOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {reportsOpen && !compact && (
+              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-border pl-2">
+                {REPORT_MENU.map(({ id, label }) => {
+                  const isSubActive = isReportsSubActive(active, reportsMenuId, id)
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        onReportsMenuNavigate(id)
+                        onMobileClose()
+                      }}
+                      className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
+                        isSubActive
+                          ? 'bg-primary/15 text-primary'
+                          : 'text-muted hover:bg-slate-50 hover:text-text'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {visibleMain.slice(3).map((item) => {
             const isActive = active === item.id
             return (
               <button
