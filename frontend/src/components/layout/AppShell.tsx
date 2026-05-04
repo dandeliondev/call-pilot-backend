@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { AppSection, ReportsMenuId } from '../../types/app'
+import type { AppSection, CampaignRouteState, ReportsMenuId } from '../../types/app'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 
@@ -9,6 +9,8 @@ interface AppShellProps {
   pageTitle?: string
   onSectionChange: (s: AppSection) => void
   onReportsMenuNavigate: (id: ReportsMenuId) => void
+  campaignRoute: CampaignRouteState
+  onCampaignRoute: (target: 'list' | { detail: string }) => void
   mobileOpen: boolean
   onMobileOpen: () => void
   onMobileClose: () => void
@@ -24,6 +26,8 @@ export function AppShell({
   pageTitle,
   onSectionChange,
   onReportsMenuNavigate,
+  campaignRoute,
+  onCampaignRoute,
   mobileOpen,
   onMobileOpen,
   onMobileClose,
@@ -41,6 +45,8 @@ export function AppShell({
         reportsMenuId={reportsMenuId}
         onSelect={onSectionChange}
         onReportsMenuNavigate={onReportsMenuNavigate}
+        campaignRoute={campaignRoute}
+        onCampaignRoute={onCampaignRoute}
         mobileOpen={mobileOpen}
         onMobileClose={onMobileClose}
         compact={isAgent}

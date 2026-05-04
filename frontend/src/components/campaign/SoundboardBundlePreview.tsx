@@ -31,6 +31,8 @@ export function SoundboardBundlePreview({ bundle }: { bundle: AgentSoundboardBun
     bundle.rebuttals,
     bundle.faqs,
     bundle.conversation,
+    ...(bundle.closing ? [bundle.closing] : []),
+    ...(bundle.dispositions ? [bundle.dispositions] : []),
     bundle.pageMessages,
     bundle.dtmf,
   ]
@@ -41,7 +43,7 @@ export function SoundboardBundlePreview({ bundle }: { bundle: AgentSoundboardBun
         <SoundboardPanelCard panel={bundle.pitch} />
       </div>
       <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-        Placeholder panels (predetermined)
+        Supporting panels (demo copy — editable in campaign wizard)
       </p>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {rest.map((p) => (

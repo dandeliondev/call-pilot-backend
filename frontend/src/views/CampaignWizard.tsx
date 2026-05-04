@@ -4,27 +4,32 @@ import { Card } from '../components/ui/Card'
 import {
   generateAgentSoundboard,
   generateCampaignFromDescription,
+  regenerateSoundboardSection,
+  type CallFlowComplexity,
 } from '../lib/campaignAiMock'
+import { CALL_FLOW_SECTIONS, TIMEZONES, updateSoundboardLine } from '../lib/campaignCallFlowShared'
 import { createCampaign, listKnownAgents } from '../mock/campaignsStore'
 import { DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS } from '../mock/campaignRandomDescriptions'
 import { initialScripts } from '../mock/data'
-import { SoundboardBundlePreview } from '../components/campaign/SoundboardBundlePreview'
 import type {
   AgentSoundboardBundle,
   CampaignLifecycleState,
   ManagedCampaign,
+  RegenerableSoundboardSection,
+  SoundboardPanel,
 } from '../types/app'
 
-const STEPS = ['Describe', 'Scripts', 'Configure', 'Resources', 'Launch'] as const
-
-const TIMEZONES = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'UTC',
-  'Europe/London',
+const STEPS = [
+  'Describe',
+  'Configure',
+  'Call Flow & Responses',
+  'Resources',
+  'Complete',
 ] as const
+
+const CALL_FLOW_STEP_LABEL = 'Call Flow & Responses'
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 interface CampaignWizardProps {
   onCancel: () => void
@@ -36,11 +41,15 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   const [isGeneratingRandomBrief, setIsGeneratingRandomBrief] = useState(false)
 
   const [brief, setBrief] = useState('')
-  /** Mock “AI” draft fields — shown on Describe; editable after generation. */
-  const [audience, setAudience] = useState('')
-  const [objective, setObjective] = useState('')
-  const [suggestedScript, setSuggestedScript] = useState('')
-  const [tone, setTone] = useState('')
+  /** Call-flow step — drives mock soundboard generation (maps to stored campaign AI fields). */
+  const [campaignGoal, setCampaignGoal] = useState('')
+  const [wizardTone, setWizardTone] = useState('')
+  const [complexity, setComplexity] = useState<CallFlowComplexity>('basic')
+  const [aiBusy, setAiBusy] = useState<'full' | RegenerableSoundboardSection | null>(null)
+  const [openFlowSections, setOpenFlowSections] = useState<Record<string, boolean>>({
+    intro: true,
+    pitch: true,
+  })
 
   const [name, setName] = useState('')
   const [type, setType] = useState<ManagedCampaign['type']>('outbound')
@@ -54,7 +63,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   const [callLimitDaily, setCallLimitDaily] = useState(400)
   const [pacingSecondsBetweenCalls, setPacingSecondsBetweenCalls] = useState(15)
 
-  const [scriptSource, setScriptSource] = useState<'library' | 'soundboard'>('library')
+  const [scriptSource, setScriptSource] = useState<'library' | 'soundboard'>('soundboard')
   const [scriptId, setScriptId] = useState<string>('s1')
   const [abScriptId, setAbScriptId] = useState<string>('')
   const [soundboardBundle, setSoundboardBundle] = useState<AgentSoundboardBundle | null>(
@@ -71,28 +80,69 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     const t = text.trim()
     if (!t) return
     const d = generateCampaignFromDescription(t)
-    setAudience(d.audience)
-    setObjective(d.objective)
-    setSuggestedScript(d.suggestedScript)
-    setTone(d.tone)
+    setCampaignGoal(d.objective)
+    setWizardTone(d.tone)
   }
 
-  function runSoundboardGenerate() {
+  function syncCampaignNameFromBrief(text: string) {
+    const t = text.trim()
+    if (!t) return
+    const d = generateCampaignFromDescription(t)
+    setName(d.suggestedName)
+  }
+
+  function soundboardInputFromWizard() {
+    const derived = generateCampaignFromDescription(brief)
+    return {
+      description: brief,
+      audience: derived.audience,
+      objective: campaignGoal.trim() || derived.objective,
+      tone: wizardTone.trim() || derived.tone,
+      complexity,
+    }
+  }
+
+  async function runGenerateFullCallFlow() {
     if (!brief.trim()) {
       toast.error('Add a campaign brief on “Describe” first, or go back to that step.')
       return
     }
-    const draft = generateCampaignFromDescription(brief)
-    const bundle = generateAgentSoundboard({
-      description: brief,
-      audience: audience.trim() || draft.audience,
-      objective: objective.trim() || draft.objective,
-      tone: tone.trim() || draft.tone,
-    })
-    setSoundboardBundle(bundle)
-    toast.success(
-      'Script generated — intro & pitch follow your brief; other panels use placeholder lines.',
-    )
+    setAiBusy('full')
+    try {
+      await delay(500)
+      const bundle = generateAgentSoundboard(soundboardInputFromWizard())
+      setSoundboardBundle(bundle)
+      setOpenFlowSections((prev) => ({
+        ...prev,
+        intro: true,
+        pitch: true,
+      }))
+      toast.success('Full call flow generated — expand sections to edit lines.')
+    } finally {
+      setAiBusy(null)
+    }
+  }
+
+  async function runRegenerateSection(section: RegenerableSoundboardSection) {
+    if (!soundboardBundle) {
+      toast.error('Generate the full call flow first.')
+      return
+    }
+    setAiBusy(section)
+    try {
+      await delay(400)
+      const next = regenerateSoundboardSection(
+        soundboardBundle,
+        section,
+        soundboardInputFromWizard(),
+      )
+      setSoundboardBundle(next)
+      setOpenFlowSections((prev) => ({ ...prev, [section]: true }))
+      const label = CALL_FLOW_SECTIONS.find((s) => s.id === section)?.heading ?? section
+      toast.message(`${label} refreshed`)
+    } finally {
+      setAiBusy(null)
+    }
   }
 
   async function fillRandomDemoBrief() {
@@ -103,13 +153,16 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       const next = DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS[i]!
       setBrief(next)
       applyAiFieldsFromBrief(next)
-      toast.message('Random description and AI draft applied — review audience & messaging on Scripts.')
+      syncCampaignNameFromBrief(next)
+      toast.message(
+        `Random description applied — name and goal updated from AI; configure schedule next, then build the call flow on “${CALL_FLOW_STEP_LABEL}”.`,
+      )
     } finally {
       setIsGeneratingRandomBrief(false)
     }
   }
 
-  function finish(mode: 'draft' | 'launch') {
+  function finish(mode: 'draft' | 'complete') {
     if (!name.trim()) {
       toast.error('Campaign name is required.')
       return
@@ -119,7 +172,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       return
     }
     if (scriptSource === 'soundboard' && !soundboardBundle) {
-      toast.error('Generate your script on the Scripts step before launching.')
+      toast.error(`Generate your call flow on “${CALL_FLOW_STEP_LABEL}” before completing.`)
       return
     }
     const scriptMeta = initialScripts.find((s) => s.id === scriptId)
@@ -155,17 +208,18 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       scriptName: scriptSource === 'library' ? scriptMeta?.name ?? null : null,
       callLimitDaily,
       pacingSecondsBetweenCalls,
-      aiAudience: audience.trim() || derived.audience,
-      aiObjective: objective.trim() || derived.objective,
-      aiSuggestedScript: suggestedScript.trim() || derived.suggestedScript,
-      aiTone: tone.trim() || derived.tone,
+      aiAudience: derived.audience,
+      aiObjective: campaignGoal.trim() || derived.objective,
+      aiSuggestedScript: derived.suggestedScript,
+      aiTone: wizardTone.trim() || derived.tone,
       abScriptId: scriptSource === 'library' ? abScriptId || null : null,
       templateId: null,
+      callFlowComplexity: complexity,
       agentSoundboard: scriptSource === 'soundboard' ? soundboardBundle ?? undefined : undefined,
     }
 
     createCampaign(record)
-    toast.success(mode === 'draft' ? 'Draft saved' : 'Campaign launched (demo)')
+    toast.success(mode === 'draft' ? 'Draft saved' : 'Campaign completed (demo)')
     onComplete(id)
   }
 
@@ -196,7 +250,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       {step === 0 && (
         <Card
           title="Describe your campaign"
-          description="Plain-language brief. Use the demo button for sample copy. Audience, objective, tone, and script outline are set on the next step."
+          description="Plain-language brief. Use the demo button for sample copy. When you continue, a campaign name is suggested from this text (mock AI); next you set type and schedule, then build the agent call flow."
         >
           <div className="mb-4">
             <button
@@ -220,216 +274,27 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
           <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setStep(1)}
+              onClick={() => {
+                syncCampaignNameFromBrief(brief)
+                setStep(1)
+              }}
               disabled={!brief.trim()}
               className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
-              Next: Scripts
+              Next: {STEPS[1]}
             </button>
           </div>
         </Card>
       )}
 
       {step === 1 && (
-        <Card
-          title="Scripts"
-          description="Refine audience and messaging from your brief, then choose a soundboard. Mock AI is deterministic (no API key)."
-        >
-          <div className="space-y-6">
-            <div>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-text">Audience & messaging</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!brief.trim()) {
-                      toast.error('Add a description on the previous step first.')
-                      return
-                    }
-                    applyAiFieldsFromBrief(brief)
-                    toast.success('AI fields updated from your description.')
-                  }}
-                  disabled={!brief.trim()}
-                  className="rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-text hover:bg-slate-50 disabled:opacity-40"
-                >
-                  Apply AI to fields
-                </button>
-              </div>
-              <p className="mb-4 text-xs text-muted">
-                Filled automatically if you used the random demo on Describe, or click Apply to generate from your brief.
-              </p>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="text-muted">Target audience</span>
-                  <textarea
-                    className="mt-1 min-h-[88px] w-full rounded-lg border border-border px-3 py-2 text-sm"
-                    value={audience}
-                    onChange={(e) => setAudience(e.target.value)}
-                    placeholder="AI-generated from your brief, or edit"
-                  />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-muted">Call objective</span>
-                  <textarea
-                    className="mt-1 min-h-[88px] w-full rounded-lg border border-border px-3 py-2 text-sm"
-                    value={objective}
-                    onChange={(e) => setObjective(e.target.value)}
-                    placeholder="AI-generated from your brief, or edit"
-                  />
-                </label>
-                <label className="block text-sm md:col-span-2">
-                  <span className="text-muted">Suggested script outline</span>
-                  <textarea
-                    className="mt-1 min-h-[100px] w-full rounded-lg border border-border px-3 py-2 text-sm"
-                    value={suggestedScript}
-                    onChange={(e) => setSuggestedScript(e.target.value)}
-                    placeholder="AI-generated from your brief, or edit"
-                  />
-                </label>
-                <label className="block text-sm md:col-span-2">
-                  <span className="text-muted">Tone</span>
-                  <input
-                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value)}
-                    placeholder="AI-generated from your brief, or edit"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-slate-50/80 p-4">
-              <p className="text-sm font-medium text-text">Script setup</p>
-              <p className="mt-1 text-xs text-muted">
-                <strong className="font-medium text-text">Use existing script</strong> pulls a saved
-                soundboard from the library. <strong className="font-medium text-text">Generate with AI</strong>{' '}
-                fills Introduction and Pitch from your campaign brief (demo logic); Rebuttals, FAQs,
-                and the rest use fixed placeholder lines until wired to a model.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScriptSource('library')}
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-                    scriptSource === 'library'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-white hover:bg-slate-50'
-                  }`}
-                >
-                  Use existing script
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScriptSource('soundboard')}
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-                    scriptSource === 'soundboard'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-white hover:bg-slate-50'
-                  }`}
-                >
-                  Generate with AI
-                </button>
-              </div>
-            </div>
-
-            {scriptSource === 'library' && (
-              <div className="space-y-4">
-                <label className="block text-sm">
-                  <span className="text-muted">Primary script</span>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                    value={scriptId}
-                    onChange={(e) => setScriptId(e.target.value)}
-                  >
-                    {initialScripts.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} (v{s.version})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  <span className="text-muted">A/B script (optional)</span>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                    value={abScriptId}
-                    onChange={(e) => setAbScriptId(e.target.value)}
-                  >
-                    <option value="">None — single script</option>
-                    {initialScripts
-                      .filter((s) => s.id !== scriptId)
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                  </select>
-                  <span className="mt-1 block text-xs text-muted">
-                    Traffic split & winner analytics — wiring ahead; stored for future use.
-                  </span>
-                </label>
-              </div>
-            )}
-
-            {scriptSource === 'soundboard' && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-end gap-3">
-                  <button
-                    type="button"
-                    onClick={runSoundboardGenerate}
-                    className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
-                  >
-                    ✨ Generate from brief
-                  </button>
-                  <p className="text-xs text-muted">
-                    Uses your brief plus the audience & messaging fields above when set; otherwise derives them from the brief.
-                  </p>
-                </div>
-                {soundboardBundle ? (
-                  <>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                      Preview (stored with campaign)
-                    </p>
-                    <SoundboardBundlePreview bundle={soundboardBundle} />
-                  </>
-                ) : (
-                  <p className="rounded-lg border border-dashed border-border bg-white px-3 py-4 text-sm text-muted">
-                    Generate to fill Introduction and Pitch; other panels show predetermined placeholders.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="mt-6 flex justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => setStep(0)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (scriptSource === 'soundboard' && !soundboardBundle) {
-                  toast.error('Generate your script before continuing.')
-                  return
-                }
-                setStep(2)
-              }}
-              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Next: Configure
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {step === 2 && (
         <Card title="Configure" description="Name, channel type, schedule, and timezone.">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block text-sm md:col-span-2">
               <span className="text-muted">Campaign name</span>
+              <span className="mb-1 block text-xs text-muted">
+                Auto-generated from your description (mock AI) when you leave Describe — you can edit anytime.
+              </span>
               <input
                 className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
                 value={name}
@@ -476,6 +341,239 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
           <div className="mt-6 flex justify-between gap-2">
             <button
               type="button"
+              onClick={() => setStep(0)}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Next: {STEPS[2]}
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {step === 2 && (
+        <Card
+          title={CALL_FLOW_STEP_LABEL}
+          description="Agent script builder — same sections as the agent soundboard. Set goal, tone, and complexity, then generate or refine per section. Mock AI only (no API key)."
+        >
+          <div className="space-y-6">
+            <div className="rounded-xl border border-border bg-slate-50/80 p-4">
+              <p className="text-sm font-medium text-text">Script source</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScriptSource('soundboard')}
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                    scriptSource === 'soundboard'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  Agent script builder
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScriptSource('library')}
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                    scriptSource === 'library'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  Use library script
+                </button>
+              </div>
+            </div>
+
+            {scriptSource === 'library' && (
+              <div className="space-y-4">
+                <label className="block text-sm">
+                  <span className="text-muted">Primary script</span>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={scriptId}
+                    onChange={(e) => setScriptId(e.target.value)}
+                  >
+                    {initialScripts.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} (v{s.version})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="text-muted">A/B script (optional)</span>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={abScriptId}
+                    onChange={(e) => setAbScriptId(e.target.value)}
+                  >
+                    <option value="">None — single script</option>
+                    {initialScripts
+                      .filter((s) => s.id !== scriptId)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {scriptSource === 'soundboard' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void runGenerateFullCallFlow()}
+                    disabled={!brief.trim() || aiBusy !== null}
+                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
+                  >
+                    {aiBusy === 'full' ? 'Generating…' : 'Generate full call flow'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!brief.trim()) {
+                        toast.error('Add a description on the previous step first.')
+                        return
+                      }
+                      applyAiFieldsFromBrief(brief)
+                      toast.success('Goal and tone updated from your brief.')
+                    }}
+                    disabled={!brief.trim() || aiBusy !== null}
+                    className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium text-text hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    Sync goal & tone from brief
+                  </button>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="block text-sm md:col-span-1">
+                    <span className="font-medium text-text">Campaign goal</span>
+                    <textarea
+                      className="mt-1 min-h-[88px] w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      value={campaignGoal}
+                      onChange={(e) => setCampaignGoal(e.target.value)}
+                      placeholder="e.g. Book renewal review, recover win-back, qualify demo…"
+                    />
+                  </label>
+                  <label className="block text-sm md:col-span-1">
+                    <span className="font-medium text-text">Tone</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      value={wizardTone}
+                      onChange={(e) => setWizardTone(e.target.value)}
+                      placeholder="e.g. Friendly consultative"
+                    />
+                  </label>
+                  <label className="block text-sm md:col-span-1">
+                    <span className="font-medium text-text">Complexity</span>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      value={complexity}
+                      onChange={(e) =>
+                        setComplexity(e.target.value as CallFlowComplexity)
+                      }
+                      disabled={aiBusy !== null}
+                    >
+                      <option value="basic">Basic</option>
+                      <option value="advanced">Advanced</option>
+                    </select>
+                    <span className="mt-1 block text-xs text-muted">
+                      Basic = shorter intro & pitch; advanced = full line set.
+                    </span>
+                  </label>
+                </div>
+
+                {!soundboardBundle ? (
+                  <p className="rounded-lg border border-dashed border-border bg-white px-3 py-4 text-sm text-muted">
+                    Generate the full call flow to mirror agent sections (introduction through DTMF).
+                    Edit any line after generation, or regenerate one section at a time.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                      Sections (same layout as agent app)
+                    </p>
+                    {CALL_FLOW_SECTIONS.map(({ id, heading }) => {
+                      const panel = soundboardBundle[id] as SoundboardPanel | undefined
+                      if (!panel) return null
+                      const open = openFlowSections[id] ?? false
+                      const busyHere = aiBusy === id
+                      return (
+                        <div
+                          key={id}
+                          className="overflow-hidden rounded-lg border border-border bg-white"
+                        >
+                          <div className="flex flex-wrap items-stretch gap-2 border-b border-border/80 bg-slate-50/90 px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenFlowSections((s) => ({ ...s, [id]: !open }))
+                              }
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold text-text"
+                            >
+                              <span className="text-muted tabular-nums">{open ? '▼' : '▶'}</span>
+                              <span>{heading}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void runRegenerateSection(id)}
+                              disabled={aiBusy !== null}
+                              className="shrink-0 rounded-md border border-border bg-white px-2.5 py-1 text-xs font-medium text-text hover:bg-slate-100 disabled:opacity-40"
+                            >
+                              {busyHere ? '…' : `Regenerate ${heading}`}
+                            </button>
+                          </div>
+                          {open && (
+                            <div className="space-y-3 px-3 py-3">
+                              {panel.items.map((line, idx) => (
+                                <label key={`${id}-${line.shortcut}-${idx}`} className="block text-xs">
+                                  <span className="text-muted">
+                                    Shortcut <span className="font-mono">{line.shortcut}</span>
+                                    {line.tag ? (
+                                      <span className="ml-1 text-violet-600">{line.tag}</span>
+                                    ) : null}
+                                  </span>
+                                  <textarea
+                                    className="mt-1 min-h-[56px] w-full rounded-lg border border-border px-3 py-2 text-sm text-text"
+                                    value={line.text}
+                                    onChange={(e) => {
+                                      if (!soundboardBundle) return
+                                      setSoundboardBundle(
+                                        updateSoundboardLine(
+                                          soundboardBundle,
+                                          id,
+                                          idx,
+                                          e.target.value,
+                                        ),
+                                      )
+                                    }}
+                                    rows={2}
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="mt-6 flex justify-between gap-2">
+            <button
+              type="button"
               onClick={() => setStep(1)}
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
             >
@@ -483,10 +581,16 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
             </button>
             <button
               type="button"
-              onClick={() => setStep(3)}
+              onClick={() => {
+                if (scriptSource === 'soundboard' && !soundboardBundle) {
+                  toast.error('Generate your call flow before continuing.')
+                  return
+                }
+                setStep(3)
+              }}
               className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Next: Resources
+              Next: {STEPS[3]}
             </button>
           </div>
         </Card>
@@ -560,14 +664,17 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
               onClick={() => setStep(4)}
               className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Next: Launch
+              Next: {STEPS[4]}
             </button>
           </div>
         </Card>
       )}
 
       {step === 4 && (
-        <Card title="Launch" description="Save as draft or launch — demo persists to browser storage.">
+        <Card
+          title="Complete"
+          description="Save as draft or complete the wizard — demo persists to browser storage."
+        >
           <ul className="mb-6 space-y-2 text-sm text-muted">
             <li>
               <strong className="text-text">{name || '(unnamed)'}</strong> — {type},{' '}
@@ -593,8 +700,8 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
                 <>
                   {' '}
                   Script:{' '}
-                  <strong className="text-text">Generated with AI</strong>
-                  <span className="text-muted"> — intro & pitch from brief</span>
+                  <strong className="text-text">Call flow (AI)</strong>
+                  <span className="text-muted"> — agent script builder</span>
                 </>
               )}
             </li>
@@ -610,10 +717,10 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
             </button>
             <button
               type="button"
-              onClick={() => finish('launch')}
+              onClick={() => finish('complete')}
               className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:opacity-95"
             >
-              Launch campaign
+              Complete campaign
             </button>
           </div>
           <div className="mt-6 flex justify-start">

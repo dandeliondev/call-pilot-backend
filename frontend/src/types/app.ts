@@ -20,6 +20,12 @@ export type ReportsMenuId =
   | 'funnel'
   | 'sentiment'
 
+/** Client routing for the Campaigns section (list, wizard, or a single campaign). */
+export type CampaignRouteState =
+  | { mode: 'list' }
+  | { mode: 'wizard' }
+  | { mode: 'detail'; campaignId: string }
+
 export type CallOutcome = 'Booked' | 'Follow-up' | 'No answer' | 'Declined' | 'Qualified'
 
 export type Sentiment = 'Positive' | 'Neutral' | 'Negative'
@@ -66,7 +72,22 @@ export interface AgentSoundboardBundle {
   conversation: SoundboardPanel
   pageMessages: SoundboardPanel
   dtmf: SoundboardPanel
+  /** Optional for older saved campaigns — wizard always persists these. */
+  closing?: SoundboardPanel
+  dispositions?: SoundboardPanel
 }
+
+/** Panels the call-flow wizard can regenerate individually (matches bundle keys except generatedAt). */
+export type RegenerableSoundboardSection =
+  | 'intro'
+  | 'pitch'
+  | 'rebuttals'
+  | 'faqs'
+  | 'conversation'
+  | 'pageMessages'
+  | 'closing'
+  | 'dispositions'
+  | 'dtmf'
 
 /** Persisted campaign record (demo localStorage). */
 export interface ManagedCampaign {
@@ -98,6 +119,8 @@ export interface ManagedCampaign {
   templateId: string | null
   /** Wizard-generated soundboard (AI intro/pitch + dummy sections). */
   agentSoundboard?: AgentSoundboardBundle
+  /** Call-flow generator complexity (basic vs advanced line sets). */
+  callFlowComplexity?: 'basic' | 'advanced'
 }
 
 export interface CallReportRow {

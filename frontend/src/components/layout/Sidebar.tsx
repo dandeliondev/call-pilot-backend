@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { AppSection, ReportsMenuId } from '../../types/app'
+import { useCampaigns } from '../../hooks/useCampaigns'
+import type { AppSection, CampaignRouteState, ReportsMenuId } from '../../types/app'
 
 type NavIcon =
   | 'dash'
@@ -18,7 +19,6 @@ const NAV_MAIN: {
   adminOnly?: boolean
 }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dash' },
-  { id: 'campaign', label: 'Campaigns', icon: 'megaphone' },
   { id: 'live', label: 'Live Monitor', icon: 'live' },
   { id: 'scripts', label: 'Script Management', icon: 'doc' },
   { id: 'users', label: 'User management', icon: 'users', adminOnly: true },
@@ -115,6 +115,8 @@ interface SidebarProps {
   reportsMenuId: ReportsMenuId
   onSelect: (section: AppSection) => void
   onReportsMenuNavigate: (id: ReportsMenuId) => void
+  campaignRoute: CampaignRouteState
+  onCampaignRoute: (target: 'list' | { detail: string }) => void
   mobileOpen: boolean
   onMobileClose: () => void
   compact?: boolean
@@ -126,19 +128,29 @@ export function Sidebar({
   reportsMenuId,
   onSelect,
   onReportsMenuNavigate,
+  campaignRoute,
+  onCampaignRoute,
   mobileOpen,
   onMobileClose,
   compact,
   isAdmin = false,
 }: SidebarProps) {
+  const campaigns = useCampaigns()
   const reportsMenuActive =
     active === 'reports' || active === 'dashboard' || active === 'insights'
 
+  const campaignSectionActive = active === 'campaign'
+
   const [reportsOpen, setReportsOpen] = useState(true)
+  const [campaignsOpen, setCampaignsOpen] = useState(true)
 
   useEffect(() => {
     if (reportsMenuActive) setReportsOpen(true)
   }, [reportsMenuActive])
+
+  useEffect(() => {
+    if (campaignSectionActive) setCampaignsOpen(true)
+  }, [campaignSectionActive])
 
   const visibleMain = NAV_MAIN.filter((item) => !item.adminOnly || isAdmin)
 
@@ -174,7 +186,7 @@ export function Sidebar({
           )}
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
-          {visibleMain.slice(0, 3).map((item) => {
+          {visibleMain.slice(0, 2).map((item) => {
             const isActive = active === item.id
             return (
               <button
@@ -196,6 +208,100 @@ export function Sidebar({
               </button>
             )
           })}
+
+          {compact ? (
+            <button
+              type="button"
+              onClick={() => {
+                onCampaignRoute('list')
+                onMobileClose()
+              }}
+              title="Campaigns"
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                campaignSectionActive
+                  ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
+                  : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
+              }`}
+            >
+              <Icon
+                name="megaphone"
+                className={`h-5 w-5 shrink-0 ${campaignSectionActive ? 'text-sky-300' : 'text-slate-500'}`}
+              />
+            </button>
+          ) : (
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={() => setCampaignsOpen((o) => !o)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  campaignSectionActive
+                    ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
+                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
+                }`}
+              >
+                <Icon
+                  name="megaphone"
+                  className={`h-5 w-5 shrink-0 ${campaignSectionActive ? 'text-sky-300' : 'text-slate-500'}`}
+                />
+                <span className="flex-1 truncate text-left">Campaigns</span>
+                <svg
+                  className={`h-4 w-4 shrink-0 transition-transform ${campaignsOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {campaignsOpen && (
+                <div className="ml-2 mt-0.5 max-h-52 space-y-0.5 overflow-y-auto border-l border-slate-600 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCampaignRoute('list')
+                      onMobileClose()
+                    }}
+                    className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
+                      campaignSectionActive &&
+                      (campaignRoute.mode === 'list' || campaignRoute.mode === 'wizard')
+                        ? 'bg-primary/20 text-sky-200'
+                        : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
+                    }`}
+                  >
+                    All campaigns
+                  </button>
+                  {campaigns.length === 0 ? (
+                    <p className="px-2 py-1 text-[11px] text-slate-600">No campaigns yet</p>
+                  ) : (
+                    campaigns.map((c) => {
+                      const isSubActive =
+                        campaignRoute.mode === 'detail' && campaignRoute.campaignId === c.id
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            onCampaignRoute({ detail: c.id })
+                            onMobileClose()
+                          }}
+                          className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
+                            isSubActive
+                              ? 'bg-primary/20 text-sky-200'
+                              : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
+                          }`}
+                        >
+                          <span className="truncate" title={c.name}>
+                            {c.name}
+                          </span>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="pt-0.5">
             {!compact && (
@@ -265,7 +371,7 @@ export function Sidebar({
             )}
           </div>
 
-          {visibleMain.slice(3).map((item) => {
+          {visibleMain.slice(2).map((item) => {
             const isActive = active === item.id
             return (
               <button

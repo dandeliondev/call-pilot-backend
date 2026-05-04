@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { MockAuthProvider } from './context/MockAuthProvider'
 import { useMockAuth } from './hooks/useMockAuth'
-import type { AppSection, ReportsMenuId } from './types/app'
+import type { AppSection, CampaignRouteState, ReportsMenuId } from './types/app'
 import { AIInsights } from './views/AIInsights'
 import { AgentApp } from './views/AgentApp'
 import { AuthPage } from './views/AuthPage'
@@ -15,8 +15,6 @@ import { ReportsHub } from './views/ReportsHub'
 import { ScriptManagement } from './views/ScriptManagement'
 import { UserManagement } from './views/UserManagement'
 import { UserProfile } from './views/UserProfile'
-import { getCampaign } from './mock/campaignsStore'
-
 const REPORT_PAGE_TITLES: Record<ReportsMenuId, string> = {
   overview: 'Overview (Dashboard)',
   calls: 'Calls',
@@ -29,17 +27,12 @@ const REPORT_PAGE_TITLES: Record<ReportsMenuId, string> = {
   sentiment: 'Sentiment',
 }
 
-type CampaignNav =
-  | { mode: 'list' }
-  | { mode: 'wizard' }
-  | { mode: 'detail'; campaignId: string }
-
 function MainApp() {
   const { user, logout, directory } = useMockAuth()
   const [section, setSection] = useState<AppSection>('dashboard')
   const [reportsMenuId, setReportsMenuId] = useState<ReportsMenuId>('overview')
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
-  const [campaignNav, setCampaignNav] = useState<CampaignNav>({ mode: 'list' })
+  const [campaignNav, setCampaignNav] = useState<CampaignRouteState>({ mode: 'list' })
   const [mobileMenu, setMobileMenu] = useState(false)
 
   // Keep navigation state deterministic across auth transitions.
@@ -62,7 +55,11 @@ function MainApp() {
     setSection(s)
     if (s === 'dashboard') setReportsMenuId('overview')
     if (s !== 'users') setProfileUserId(null)
-    if (s !== 'campaign') setCampaignNav({ mode: 'list' })
+    // Keep list/detail when leaving Campaigns so Live Monitor (etc.) stays put when switching
+    // the sidebar campaign; only drop an in-progress wizard when navigating away.
+    setCampaignNav((prev) =>
+      s !== 'campaign' && prev.mode === 'wizard' ? { mode: 'list' } : prev,
+    )
   }
 
   function navigateReportsMenu(id: ReportsMenuId) {
@@ -76,6 +73,20 @@ function MainApp() {
     }
   }
 
+  function navigateCampaignRoute(target: 'list' | { detail: string }) {
+    setMobileMenu(false)
+    if (target === 'list') {
+      setSection('campaign')
+      setCampaignNav({ mode: 'list' })
+      return
+    }
+    setCampaignNav({ mode: 'detail', campaignId: target.detail })
+    if (activeSection === 'campaign') {
+      return
+    }
+    // Stay on Live Monitor, Reports, etc. — only update which campaign is selected for next visit.
+  }
+
   const pageTitle = useMemo(() => {
     if (activeSection === 'dashboard') return REPORT_PAGE_TITLES.overview
     if (activeSection === 'insights') return REPORT_PAGE_TITLES.insights
@@ -86,10 +97,7 @@ function MainApp() {
     }
     if (activeSection === 'campaign') {
       if (campaignNav.mode === 'wizard') return 'Create campaign'
-      if (campaignNav.mode === 'detail') {
-        const c = getCampaign(campaignNav.campaignId)
-        return c ? `${c.name} — Campaign` : 'Campaign'
-      }
+      if (campaignNav.mode === 'detail') return 'Campaign details'
       return 'Campaign management'
     }
     if (activeSection === 'live') return 'Live Monitor'
@@ -160,6 +168,8 @@ function MainApp() {
       pageTitle={pageTitle}
       onSectionChange={handleSectionChange}
       onReportsMenuNavigate={navigateReportsMenu}
+      campaignRoute={campaignNav}
+      onCampaignRoute={navigateCampaignRoute}
       mobileOpen={mobileMenu}
       onMobileOpen={() => setMobileMenu(true)}
       onMobileClose={() => setMobileMenu(false)}

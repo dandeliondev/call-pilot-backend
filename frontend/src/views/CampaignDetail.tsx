@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { useMemo, useState } from 'react'
 import {
   CartesianGrid,
   Cell,
@@ -22,7 +21,6 @@ import {
   callsTrendForCampaign,
   metricsForCampaign,
 } from '../lib/campaignMetrics'
-import { updateCampaign } from '../mock/campaignsStore'
 import { callReports, initialScripts } from '../mock/data'
 import { useCampaigns } from '../hooks/useCampaigns'
 import {
@@ -33,6 +31,7 @@ import {
 } from '../lib/callReportUtils'
 import type { CallReportRow, CampaignLifecycleState, ManagedCampaign } from '../types/app'
 import { CallReports } from './CallReports'
+import { CampaignSettingsTab } from './CampaignSettingsTab'
 
 const STATUS_LABEL: Record<CampaignLifecycleState, string> = {
   draft: 'Draft',
@@ -141,7 +140,7 @@ export function CampaignDetail({ campaignId, onBack }: CampaignDetailProps) {
       {tab === 'agents' && <AgentsTab campaignId={campaignId} campaign={campaign} rows={rows} />}
       {tab === 'scripts' && <ScriptsTab campaign={campaign} />}
       {tab === 'monitor' && <MonitorTab />}
-      {tab === 'settings' && <SettingsTab campaign={campaign} />}
+      {tab === 'settings' && <CampaignSettingsTab campaign={campaign} />}
     </div>
   )
 }
@@ -400,7 +399,7 @@ function AgentsTab({
 
   return (
     <div className="space-y-6">
-      <Card title="Assigned roster" description="Configured in campaign settings.">
+      <Card title="Assigned roster" description="Edit roster in Settings — Agents & dialing.">
         <p className="text-sm text-text">{assigned.join(', ') || '—'}</p>
       </Card>
       <Card title="Performance & leaderboard" description="Derived from mock calls for this campaign id.">
@@ -444,14 +443,14 @@ function ScriptsTab({ campaign }: { campaign: ManagedCampaign }) {
       {campaign.agentSoundboard && (
         <Card
           title="AI-generated script"
-          description={`Saved from campaign wizard. Intro and Pitch were generated from your brief; other panels use placeholder lines (demo). Generated ${new Date(campaign.agentSoundboard.generatedAt).toLocaleString()}.`}
+          description={`Edit in Settings — Scripts & call flow. Saved from the wizard or settings (demo). Generated ${new Date(campaign.agentSoundboard.generatedAt).toLocaleString()}.`}
         >
           <SoundboardBundlePreview bundle={campaign.agentSoundboard} />
         </Card>
       )}
       <Card
         title="Library scripts"
-        description="Scripts linked from the global library (owned by campaign). Primary and A/B control routing when configured."
+        description="Scripts linked from the global library. Configure primary, A/B, or AI call flow in Settings — Scripts & call flow."
       >
         {forCampaign.length === 0 ? (
           <p className="text-sm text-muted">No library scripts are linked to this campaign id yet.</p>
@@ -538,118 +537,6 @@ function MonitorTab() {
             </li>
           ))}
         </ul>
-      </Card>
-    </div>
-  )
-}
-
-function SettingsTab({ campaign }: { campaign: ManagedCampaign }) {
-  const [name, setName] = useState(campaign.name)
-  const [status, setStatus] = useState<CampaignLifecycleState>(campaign.status)
-  const [scheduleLocal, setScheduleLocal] = useState(() =>
-    campaign.scheduleStart ? campaign.scheduleStart.slice(0, 16) : '',
-  )
-
-  useEffect(() => {
-    setName(campaign.name)
-    setStatus(campaign.status)
-    setScheduleLocal(campaign.scheduleStart ? campaign.scheduleStart.slice(0, 16) : '')
-  }, [campaign])
-
-  function save() {
-    updateCampaign(campaign.id, {
-      name: name.trim(),
-      status,
-      scheduleStart: scheduleLocal ? new Date(scheduleLocal).toISOString() : null,
-    })
-    toast.success('Campaign updated')
-  }
-
-  function setLifecycle(next: CampaignLifecycleState) {
-    updateCampaign(campaign.id, { status: next })
-    setStatus(next)
-    toast.success(`Status → ${STATUS_LABEL[next]}`)
-  }
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Card title="Edit campaign">
-        <div className="space-y-3 text-sm">
-          <label className="block">
-            <span className="text-muted">Name</span>
-            <input
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label className="block">
-            <span className="text-muted">Next start (local)</span>
-            <input
-              type="datetime-local"
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2"
-              value={scheduleLocal}
-              onChange={(e) => setScheduleLocal(e.target.value)}
-            />
-          </label>
-          <label className="block">
-            <span className="text-muted">Lifecycle status</span>
-            <select
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as CampaignLifecycleState)}
-            >
-              {(Object.keys(STATUS_LABEL) as CampaignLifecycleState[]).map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={save}
-            className="w-full rounded-xl bg-primary py-2.5 font-semibold text-white hover:opacity-95"
-          >
-            Save changes
-          </button>
-        </div>
-      </Card>
-
-      <Card title="Lifecycle actions">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
-            onClick={() => setLifecycle('paused')}
-          >
-            Pause
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
-            onClick={() => setLifecycle('active')}
-          >
-            Resume
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
-            onClick={() => setLifecycle('completed')}
-          >
-            Mark completed
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-            onClick={() => setLifecycle('archived')}
-          >
-            Archive
-          </button>
-        </div>
-        <p className="mt-4 text-xs text-muted">
-          Draft → scheduled → active → paused ↔ active → completed → archived.
-        </p>
       </Card>
     </div>
   )
