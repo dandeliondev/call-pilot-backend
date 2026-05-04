@@ -116,7 +116,7 @@ interface SidebarProps {
   onSelect: (section: AppSection) => void
   onReportsMenuNavigate: (id: ReportsMenuId) => void
   campaignRoute: CampaignRouteState
-  onCampaignRoute: (target: 'list' | { detail: string }) => void
+  onCampaignRoute: (target: 'list' | 'wizard' | { detail: string }) => void
   mobileOpen: boolean
   onMobileClose: () => void
   compact?: boolean
@@ -210,52 +210,113 @@ export function Sidebar({
           })}
 
           {compact ? (
-            <button
-              type="button"
-              onClick={() => {
-                onCampaignRoute('list')
-                onMobileClose()
-              }}
-              title="Campaigns"
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                campaignSectionActive
-                  ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
-                  : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
-              }`}
-            >
-              <Icon
-                name="megaphone"
-                className={`h-5 w-5 shrink-0 ${campaignSectionActive ? 'text-sky-300' : 'text-slate-500'}`}
-              />
-            </button>
-          ) : (
-            <div className="pt-0.5">
+            <div className="flex flex-col gap-0.5">
               <button
                 type="button"
-                onClick={() => setCampaignsOpen((o) => !o)}
+                onClick={() => {
+                  onCampaignRoute('list')
+                  onMobileClose()
+                }}
+                title="Campaigns"
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                  campaignSectionActive
+                  campaignSectionActive &&
+                  (campaignRoute.mode === 'list' || campaignRoute.mode === 'detail')
                     ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
                     : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
               >
                 <Icon
                   name="megaphone"
-                  className={`h-5 w-5 shrink-0 ${campaignSectionActive ? 'text-sky-300' : 'text-slate-500'}`}
+                  className={`h-5 w-5 shrink-0 ${
+                    campaignSectionActive &&
+                    (campaignRoute.mode === 'list' || campaignRoute.mode === 'detail')
+                      ? 'text-sky-300'
+                      : 'text-slate-500'
+                  }`}
                 />
-                <span className="flex-1 truncate text-left">Campaigns</span>
-                <svg
-                  className={`h-4 w-4 shrink-0 transition-transform ${campaignsOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onCampaignRoute('wizard')
+                  onMobileClose()
+                }}
+                title="Add new campaign"
+                className={`flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  campaignSectionActive && campaignRoute.mode === 'wizard'
+                    ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
+                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
+                }`}
+              >
+                <span className="text-lg font-light leading-none">+</span>
+              </button>
+            </div>
+          ) : (
+            <div className="pt-0.5">
+              <div
+                className={`flex w-full items-stretch overflow-hidden rounded-lg ${
+                  campaignSectionActive
+                    ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
+                    : 'text-slate-400'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCampaignRoute('list')
+                    onMobileClose()
+                    setCampaignsOpen(true)
+                  }}
+                  className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                    campaignSectionActive
+                      ? 'text-white'
+                      : 'hover:bg-white/[0.06] hover:text-slate-100'
+                  }`}
+                >
+                  <Icon
+                    name="megaphone"
+                    className={`h-5 w-5 shrink-0 ${campaignSectionActive ? 'text-sky-300' : 'text-slate-500'}`}
+                  />
+                  <span className="truncate">Campaigns</span>
+                </button>
+                <button
+                  type="button"
+                  aria-expanded={campaignsOpen}
+                  aria-label={campaignsOpen ? 'Collapse campaign list' : 'Expand campaign list'}
+                  onClick={() => setCampaignsOpen((o) => !o)}
+                  className={`shrink-0 border-l px-2.5 transition-colors ${
+                    campaignSectionActive
+                      ? 'border-sky-500/30 text-sky-200 hover:bg-white/10'
+                      : 'border-slate-600/60 text-slate-500 hover:bg-white/[0.06] hover:text-slate-100'
+                  }`}
+                >
+                  <svg
+                    className={`h-4 w-4 transition-transform ${campaignsOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
 
               {campaignsOpen && (
-                <div className="ml-2 mt-0.5 max-h-52 space-y-0.5 overflow-y-auto border-l border-slate-600 pl-2">
+                <div className="ml-2 mt-0.5 space-y-0.5 border-l border-slate-600 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCampaignRoute('wizard')
+                      onMobileClose()
+                    }}
+                    className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
+                      campaignSectionActive && campaignRoute.mode === 'wizard'
+                        ? 'bg-primary/20 text-sky-200'
+                        : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
+                    }`}
+                  >
+                    Add New
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -263,8 +324,7 @@ export function Sidebar({
                       onMobileClose()
                     }}
                     className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
-                      campaignSectionActive &&
-                      (campaignRoute.mode === 'list' || campaignRoute.mode === 'wizard')
+                      campaignSectionActive && campaignRoute.mode === 'list'
                         ? 'bg-primary/20 text-sky-200'
                         : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
                     }`}
@@ -304,11 +364,6 @@ export function Sidebar({
           )}
 
           <div className="pt-0.5">
-            {!compact && (
-              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                📊 Reports Menu
-              </p>
-            )}
             <button
               type="button"
               onClick={() => {

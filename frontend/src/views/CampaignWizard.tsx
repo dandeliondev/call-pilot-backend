@@ -8,7 +8,7 @@ import {
   type CallFlowComplexity,
 } from '../lib/campaignAiMock'
 import { CALL_FLOW_SECTIONS, TIMEZONES, updateSoundboardLine } from '../lib/campaignCallFlowShared'
-import { createCampaign, listKnownAgents } from '../mock/campaignsStore'
+import { createCampaign, listKnownAgents, listKnownCampaignManagers } from '../mock/campaignsStore'
 import { DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS } from '../mock/campaignRandomDescriptions'
 import { initialScripts } from '../mock/data'
 import type {
@@ -57,8 +57,12 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   const [timezone, setTimezone] = useState<string>('America/New_York')
 
   const agentsPool = useMemo(() => [...listKnownAgents()], [])
+  const managersPool = useMemo(() => [...listKnownCampaignManagers()], [])
   const [selectedAgents, setSelectedAgents] = useState<string[]>(() =>
     agentsPool.slice(0, 2),
+  )
+  const [selectedManagers, setSelectedManagers] = useState<string[]>(() =>
+    managersPool.slice(0, 1),
   )
   const [callLimitDaily, setCallLimitDaily] = useState(400)
   const [pacingSecondsBetweenCalls, setPacingSecondsBetweenCalls] = useState(15)
@@ -73,6 +77,12 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   function toggleAgent(a: string) {
     setSelectedAgents((prev) =>
       prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a],
+    )
+  }
+
+  function toggleManager(m: string) {
+    setSelectedManagers((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m],
     )
   }
 
@@ -204,6 +214,9 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       scheduleEnd: null,
       timezone,
       assignedAgents: selectedAgents.length ? selectedAgents : agentsPool.slice(0, 2),
+      assignedCampaignManagers: selectedManagers.length
+        ? selectedManagers
+        : managersPool.slice(0, 1),
       scriptId: scriptSource === 'library' ? scriptId : null,
       scriptName: scriptSource === 'library' ? scriptMeta?.name ?? null : null,
       callLimitDaily,
@@ -599,9 +612,36 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       {step === 3 && (
         <Card
           title="Assign resources"
-          description="Agents and dialing limits."
+          description="Campaign managers, agents, and dialing limits."
         >
           <div className="space-y-6">
+            <div>
+              <p className="mb-2 text-sm font-medium text-text">Campaign managers</p>
+              <p className="mb-2 text-xs text-muted">
+                Oversight, approvals, and reporting contacts for this campaign (demo roster).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {managersPool.map((m) => (
+                  <label
+                    key={m}
+                    className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
+                      selectedManagers.includes(m)
+                        ? 'border-violet-500 bg-violet-500/10 text-violet-900'
+                        : 'border-border hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={selectedManagers.includes(m)}
+                      onChange={() => toggleManager(m)}
+                    />
+                    {m}
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div>
               <p className="mb-2 text-sm font-medium text-text">Agents / teams</p>
               <div className="flex flex-wrap gap-2">
@@ -678,7 +718,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
           <ul className="mb-6 space-y-2 text-sm text-muted">
             <li>
               <strong className="text-text">{name || '(unnamed)'}</strong> — {type},{' '}
-              {selectedAgents.length} agent(s).
+              {selectedManagers.length} manager(s), {selectedAgents.length} agent(s).
               {scriptSource === 'library' ? (
                 <>
                   {' '}

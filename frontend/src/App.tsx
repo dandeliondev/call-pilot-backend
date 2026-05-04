@@ -73,18 +73,27 @@ function MainApp() {
     }
   }
 
-  function navigateCampaignRoute(target: 'list' | { detail: string }) {
+  function navigateCampaignRoute(target: 'list' | 'wizard' | { detail: string }) {
     setMobileMenu(false)
     if (target === 'list') {
       setSection('campaign')
       setCampaignNav({ mode: 'list' })
       return
     }
+    if (target === 'wizard') {
+      setSection('campaign')
+      setCampaignNav({ mode: 'wizard' })
+      return
+    }
     setCampaignNav({ mode: 'detail', campaignId: target.detail })
     if (activeSection === 'campaign') {
       return
     }
-    // Stay on Live Monitor, Reports, etc. — only update which campaign is selected for next visit.
+    // From Live Monitor, only update selected campaign (stay on live). Else open campaign detail.
+    if (activeSection === 'live') {
+      return
+    }
+    setSection('campaign')
   }
 
   const pageTitle = useMemo(() => {

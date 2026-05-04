@@ -24,6 +24,13 @@ const KNOWN_AGENTS = [
   'Elena Rossi',
 ] as const
 
+const KNOWN_CAMPAIGN_MANAGERS = [
+  'Jordan Blake',
+  'Taylor Nguyen',
+  'Alex Ortiz',
+  'Morgan Patel',
+] as const
+
 function defaultCampaign(
   id: string,
   name: string,
@@ -44,6 +51,8 @@ function defaultCampaign(
     scheduleEnd: extra.scheduleEnd ?? null,
     timezone: extra.timezone ?? 'America/New_York',
     assignedAgents: extra.assignedAgents ?? [...KNOWN_AGENTS].slice(0, 2),
+    assignedCampaignManagers:
+      extra.assignedCampaignManagers ?? [...KNOWN_CAMPAIGN_MANAGERS].slice(0, 1),
     scriptId: 'scriptId' in extra ? extra.scriptId ?? null : 's1',
     scriptName: (() => {
       if (Object.prototype.hasOwnProperty.call(extra, 'scriptName')) {
@@ -68,6 +77,7 @@ function defaultCampaign(
     abScriptId: extra.abScriptId ?? null,
     templateId: extra.templateId ?? null,
     agentSoundboard: extra.agentSoundboard,
+    callFlowComplexity: extra.callFlowComplexity,
   }
 }
 
@@ -85,6 +95,7 @@ export function seedCampaigns(): ManagedCampaign[] {
         createdAt: '2026-04-10T14:00:00Z',
         scheduleStart: '2026-04-12T13:00:00Z',
         assignedAgents: ['Sarah Chen', 'Marcus Lee', 'Priya Sharma'],
+        assignedCampaignManagers: ['Jordan Blake', 'Taylor Nguyen'],
         scriptId: 's1',
         abScriptId: 's4',
         templateId: 'renewal',
@@ -100,6 +111,7 @@ export function seedCampaigns(): ManagedCampaign[] {
         createdAt: '2026-04-22T10:30:00Z',
         scheduleStart: '2026-04-22T09:00:00Z',
         assignedAgents: ['John Doe', 'Elena Rossi'],
+        assignedCampaignManagers: ['Alex Ortiz'],
         scriptId: 's2',
         aiTone: 'Professional upbeat',
       },
@@ -114,6 +126,7 @@ export function seedCampaigns(): ManagedCampaign[] {
         createdAt: '2026-03-01T11:00:00Z',
         scheduleStart: '2026-03-05T14:00:00Z',
         assignedAgents: ['Sarah Chen', 'Elena Rossi'],
+        assignedCampaignManagers: ['Morgan Patel'],
         scriptId: 's3',
         status: 'paused',
       },
@@ -127,6 +140,7 @@ export function seedCampaigns(): ManagedCampaign[] {
       {
         createdAt: new Date().toISOString(),
         assignedAgents: ['Marcus Lee'],
+        assignedCampaignManagers: ['Jordan Blake'],
         scriptId: null,
         scriptName: null,
       },
@@ -217,4 +231,8 @@ export function updateCampaign(
 
 export function listKnownAgents(): readonly string[] {
   return KNOWN_AGENTS
+}
+
+export function listKnownCampaignManagers(): readonly string[] {
+  return KNOWN_CAMPAIGN_MANAGERS
 }

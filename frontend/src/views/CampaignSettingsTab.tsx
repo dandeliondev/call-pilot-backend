@@ -8,7 +8,11 @@ import {
   type CallFlowComplexity,
 } from '../lib/campaignAiMock'
 import { CALL_FLOW_SECTIONS, TIMEZONES, updateSoundboardLine } from '../lib/campaignCallFlowShared'
-import { listKnownAgents, updateCampaign } from '../mock/campaignsStore'
+import {
+  listKnownAgents,
+  listKnownCampaignManagers,
+  updateCampaign,
+} from '../mock/campaignsStore'
 import { initialScripts } from '../mock/data'
 import type {
   AgentSoundboardBundle,
@@ -29,6 +33,17 @@ const STATUS_LABEL: Record<CampaignLifecycleState, string> = {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** Sub-steps aligned with the create-campaign wizard. */
+const SETTINGS_STEPS = [
+  'Describe',
+  'Configure',
+  'Call Flow & Responses',
+  'Resources',
+  'Complete',
+] as const
+
+type SettingsSubStep = 0 | 1 | 2 | 3 | 4
+
 function cloneBundle(b: AgentSoundboardBundle | undefined): AgentSoundboardBundle | null {
   if (!b) return null
   try {
@@ -40,6 +55,7 @@ function cloneBundle(b: AgentSoundboardBundle | undefined): AgentSoundboardBundl
 
 export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign }) {
   const agentsPool = useMemo(() => [...listKnownAgents()], [])
+  const managersPool = useMemo(() => [...listKnownCampaignManagers()], [])
 
   const [name, setName] = useState(campaign.name)
   const [description, setDescription] = useState(campaign.description)
@@ -68,6 +84,11 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
   const [selectedAgents, setSelectedAgents] = useState<string[]>(() =>
     campaign.assignedAgents.length ? [...campaign.assignedAgents] : agentsPool.slice(0, 2),
   )
+  const [selectedManagers, setSelectedManagers] = useState<string[]>(() =>
+    campaign.assignedCampaignManagers.length
+      ? [...campaign.assignedCampaignManagers]
+      : managersPool.slice(0, 1),
+  )
   const [callLimitDaily, setCallLimitDaily] = useState(campaign.callLimitDaily)
   const [pacingSecondsBetweenCalls, setPacingSecondsBetweenCalls] = useState(
     campaign.pacingSecondsBetweenCalls,
@@ -78,6 +99,12 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
     intro: true,
     pitch: true,
   })
+
+  const [subStep, setSubStep] = useState<SettingsSubStep>(0)
+
+  useEffect(() => {
+    setSubStep(0)
+  }, [campaign.id])
 
   useEffect(() => {
     setName(campaign.name)
@@ -96,6 +123,11 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
     setSelectedAgents(
       campaign.assignedAgents.length ? [...campaign.assignedAgents] : agentsPool.slice(0, 2),
     )
+    setSelectedManagers(
+      campaign.assignedCampaignManagers.length
+        ? [...campaign.assignedCampaignManagers]
+        : managersPool.slice(0, 1),
+    )
     setCallLimitDaily(campaign.callLimitDaily)
     setPacingSecondsBetweenCalls(campaign.pacingSecondsBetweenCalls)
   }, [campaign, agentsPool])
@@ -103,6 +135,12 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
   function toggleAgent(a: string) {
     setSelectedAgents((prev) =>
       prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a],
+    )
+  }
+
+  function toggleManager(m: string) {
+    setSelectedManagers((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m],
     )
   }
 
@@ -192,6 +230,9 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
       aiTone: wizardTone.trim() || derived.tone,
       callFlowComplexity: complexity,
       assignedAgents: selectedAgents.length ? selectedAgents : agentsPool.slice(0, 2),
+      assignedCampaignManagers: selectedManagers.length
+        ? selectedManagers
+        : managersPool.slice(0, 1),
       callLimitDaily,
       pacingSecondsBetweenCalls,
       scriptId: scriptSource === 'library' ? scriptId : null,
@@ -208,91 +249,152 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
     toast.success(`Status → ${STATUS_LABEL[next]}`)
   }
 
+  function goNext() {
+    setSubStep((s) => (s < 4 ? ((s + 1) as SettingsSubStep) : s))
+  }
+
+  function goBack() {
+    setSubStep((s) => (s > 0 ? ((s - 1) as SettingsSubStep) : s))
+  }
+
+  const scriptMeta = initialScripts.find((s) => s.id === scriptId)
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
-        General campaign fields, scripts (library or AI call flow), agents, and dialing limits —
-        same options as the create wizard. Use <strong className="text-text">Save settings</strong>{' '}
-        below to persist changes.
+        Same flow as the create wizard — move between steps, then save on{' '}
+        <strong className="text-text">Complete</strong>.
       </p>
 
-      <Card
-        title="General"
-        description="Name, brief, channel type, schedule, timezone, and lifecycle status."
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block text-sm md:col-span-2">
-            <span className="text-muted">Campaign name</span>
-            <input
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label className="block text-sm md:col-span-2">
-            <span className="text-muted">Description (brief)</span>
+      <div className="flex flex-wrap gap-1">
+        {SETTINGS_STEPS.map((label, i) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => setSubStep(i as SettingsSubStep)}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              i === subStep ? 'bg-primary text-white' : 'bg-slate-100 text-muted hover:bg-slate-200'
+            }`}
+          >
+            {i + 1}. {label}
+          </button>
+        ))}
+      </div>
+
+      {subStep === 0 && (
+        <Card
+          title="Describe"
+          description="Plain-language brief — drives mock AI for goal, tone, and call-flow generation on the next steps."
+        >
+          <label className="block text-sm">
+            <span className="text-muted">Campaign description</span>
             <textarea
-              className="mt-1 min-h-[100px] w-full rounded-lg border border-border px-3 py-2 text-sm"
+              className="mt-1 min-h-[160px] w-full rounded-lg border border-border px-3 py-2 text-sm"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Plain-language campaign brief — drives mock AI for goal/tone and call-flow generation."
+              placeholder='e.g. "Outbound campaign to offer renewal discount for expired subscriptions"'
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-muted">Type</span>
-            <select
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-              value={type}
-              onChange={(e) => setType(e.target.value as ManagedCampaign['type'])}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!description.trim()}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
-              <option value="outbound">Outbound</option>
-              <option value="inbound">Inbound</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="text-muted">Next start (local)</span>
-            <input
-              type="datetime-local"
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-              value={scheduleLocal}
-              onChange={(e) => setScheduleLocal(e.target.value)}
-            />
-          </label>
-          <label className="block text-sm md:col-span-2">
-            <span className="text-muted">Timezone</span>
-            <select
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-            >
-              {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm md:col-span-2">
-            <span className="text-muted">Lifecycle status</span>
-            <select
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as CampaignLifecycleState)}
-            >
-              {(Object.keys(STATUS_LABEL) as CampaignLifecycleState[]).map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </Card>
+              Next: {SETTINGS_STEPS[1]}
+            </button>
+          </div>
+        </Card>
+      )}
 
-      <Card
-        title="Scripts & call flow"
-        description="Library scripts or the agent script builder (mock AI) — same as the wizard Call Flow step."
-      >
+      {subStep === 1 && (
+        <Card
+          title="Configure"
+          description="Name, channel type, schedule, timezone, and lifecycle status."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block text-sm md:col-span-2">
+              <span className="text-muted">Campaign name</span>
+              <input
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted">Type</span>
+              <select
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={type}
+                onChange={(e) => setType(e.target.value as ManagedCampaign['type'])}
+              >
+                <option value="outbound">Outbound</option>
+                <option value="inbound">Inbound</option>
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-muted">Next start (local)</span>
+              <input
+                type="datetime-local"
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={scheduleLocal}
+                onChange={(e) => setScheduleLocal(e.target.value)}
+              />
+            </label>
+            <label className="block text-sm md:col-span-2">
+              <span className="text-muted">Timezone</span>
+              <select
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm md:col-span-2">
+              <span className="text-muted">Lifecycle status</span>
+              <select
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as CampaignLifecycleState)}
+              >
+                {(Object.keys(STATUS_LABEL) as CampaignLifecycleState[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="mt-6 flex justify-between gap-2">
+            <button
+              type="button"
+              onClick={goBack}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Next: {SETTINGS_STEPS[2]}
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {subStep === 2 && (
+        <Card
+          title={SETTINGS_STEPS[2]}
+          description="Library scripts or the agent script builder (mock AI) — same as the wizard."
+        >
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-slate-50/80 p-4">
             <p className="text-sm font-medium text-text">Script source</p>
@@ -494,10 +596,58 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
             </div>
           )}
         </div>
-      </Card>
+          <div className="mt-6 flex justify-between gap-2">
+            <button
+              type="button"
+              onClick={goBack}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Next: {SETTINGS_STEPS[3]}
+            </button>
+          </div>
+        </Card>
+      )}
 
-      <Card title="Agents & dialing" description="Roster and pacing — same as the wizard Resources step.">
+      {subStep === 3 && (
+        <Card
+          title={SETTINGS_STEPS[3]}
+          description="Campaign managers, agents, and dialing limits — same as the wizard Resources step."
+        >
         <div className="space-y-6">
+          <div>
+            <p className="mb-2 text-sm font-medium text-text">Campaign managers</p>
+            <p className="mb-2 text-xs text-muted">
+              Oversight, approvals, and reporting contacts (demo roster).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {managersPool.map((m) => (
+                <label
+                  key={m}
+                  className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
+                    selectedManagers.includes(m)
+                      ? 'border-violet-500 bg-violet-500/10 text-violet-900'
+                      : 'border-border hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={selectedManagers.includes(m)}
+                    onChange={() => toggleManager(m)}
+                  />
+                  {m}
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div>
             <p className="mb-2 text-sm font-medium text-text">Agents / teams</p>
             <div className="flex flex-wrap gap-2">
@@ -545,55 +695,124 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
             </label>
           </div>
         </div>
-      </Card>
+          <div className="mt-6 flex justify-between gap-2">
+            <button
+              type="button"
+              onClick={goBack}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Next: {SETTINGS_STEPS[4]}
+            </button>
+          </div>
+        </Card>
+      )}
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={saveConfiguration}
-          className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:opacity-95"
+      {subStep === 4 && (
+        <Card
+          title={SETTINGS_STEPS[4]}
+          description="Review, save all changes to storage, or use lifecycle shortcuts (immediate)."
         >
-          Save settings
-        </button>
-      </div>
+          <ul className="mb-6 space-y-2 text-sm text-muted">
+            <li>
+              <strong className="text-text">{name.trim() || '(unnamed)'}</strong> — {type},{' '}
+              {selectedManagers.length} manager(s), {selectedAgents.length} agent(s).
+              {scriptSource === 'library' ? (
+                <>
+                  {' '}
+                  Script:{' '}
+                  <strong className="text-text">{scriptMeta?.name ?? scriptId}</strong>
+                  {abScriptId ? (
+                    <span>
+                      {' '}
+                      · A/B:{' '}
+                      <strong className="text-text">
+                        {initialScripts.find((s) => s.id === abScriptId)?.name ?? abScriptId}
+                      </strong>
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {' '}
+                  Script:{' '}
+                  <strong className="text-text">Call flow (AI)</strong>
+                  <span className="text-muted"> — agent script builder</span>
+                </>
+              )}
+            </li>
+            <li>Daily cap {callLimitDaily}, pacing {pacingSecondsBetweenCalls}s.</li>
+            <li>
+              Status: <strong className="text-text">{STATUS_LABEL[status]}</strong> ·{' '}
+              {timezone}
+            </li>
+          </ul>
 
-      <Card title="Lifecycle shortcuts">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
-            onClick={() => setLifecycle('paused')}
-          >
-            Pause
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
-            onClick={() => setLifecycle('active')}
-          >
-            Resume
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
-            onClick={() => setLifecycle('completed')}
-          >
-            Mark completed
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-            onClick={() => setLifecycle('archived')}
-          >
-            Archive
-          </button>
-        </div>
-        <p className="mt-4 text-xs text-muted">
-          Draft → scheduled → active → paused ↔ active → completed → archived. Status above is
-          saved with <strong className="text-text">Save settings</strong>; these buttons update
-          immediately.
-        </p>
-      </Card>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={saveConfiguration}
+              className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:opacity-95"
+            >
+              Save settings
+            </button>
+          </div>
+
+          <div className="mt-8 border-t border-border pt-6">
+            <p className="mb-3 text-sm font-medium text-text">Lifecycle shortcuts</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setLifecycle('paused')}
+              >
+                Pause
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setLifecycle('active')}
+              >
+                Resume
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setLifecycle('completed')}
+              >
+                Mark completed
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                onClick={() => setLifecycle('archived')}
+              >
+                Archive
+              </button>
+            </div>
+            <p className="mt-4 text-xs text-muted">
+              Draft → scheduled → active → paused ↔ active → completed → archived. Lifecycle
+              buttons update status immediately; other fields use <strong className="text-text">Save settings</strong>.
+            </p>
+          </div>
+
+          <div className="mt-6 flex justify-start">
+            <button
+              type="button"
+              onClick={goBack}
+              className="text-sm font-medium text-muted hover:text-text"
+            >
+              ← Back
+            </button>
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

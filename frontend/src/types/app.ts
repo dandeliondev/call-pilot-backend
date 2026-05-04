@@ -104,6 +104,8 @@ export interface ManagedCampaign {
   timezone: string
   /** Agent display names (matches mock call rows) */
   assignedAgents: string[]
+  /** Campaign managers — oversight, approvals, reporting (demo names). */
+  assignedCampaignManagers: string[]
   scriptId: string | null
   scriptName: string | null
   callLimitDaily: number

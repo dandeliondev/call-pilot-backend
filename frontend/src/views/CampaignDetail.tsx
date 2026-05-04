@@ -48,6 +48,71 @@ const DUR_COLORS: Record<string, string> = {
   Long: '#34d399',
 }
 
+const AVATAR_RING = [
+  'bg-sky-600 text-white ring-2 ring-sky-600/30',
+  'bg-violet-600 text-white ring-2 ring-violet-600/30',
+  'bg-emerald-600 text-white ring-2 ring-emerald-600/30',
+  'bg-amber-600 text-white ring-2 ring-amber-600/30',
+  'bg-rose-600 text-white ring-2 ring-rose-600/30',
+  'bg-indigo-600 text-white ring-2 ring-indigo-600/30',
+] as const
+
+function initialsFromDisplayName(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    const a = parts[0]![0] ?? ''
+    const b = parts[1]![0] ?? ''
+    return `${a}${b}`.toUpperCase()
+  }
+  const single = parts[0] ?? '?'
+  return single.slice(0, 2).toUpperCase()
+}
+
+function avatarPaletteClass(name: string, salt: number): string {
+  let h = salt * 31
+  for (let i = 0; i < name.length; i++) {
+    h = (h + name.charCodeAt(i) * (i + 3)) % 1009
+  }
+  return AVATAR_RING[h % AVATAR_RING.length]!
+}
+
+function OverviewPeopleRow({
+  title,
+  people,
+  salt,
+}: {
+  title: string
+  people: string[]
+  salt: number
+}) {
+  if (!people.length) {
+    return (
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
+        <p className="text-sm text-muted">None assigned.</p>
+      </div>
+    )
+  }
+  return (
+    <div>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
+      <ul className="flex flex-wrap gap-x-6 gap-y-4">
+        {people.map((name) => (
+          <li key={name} className="flex items-center gap-3">
+            <span
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-bold shadow-sm ${avatarPaletteClass(name, salt)}`}
+              aria-hidden
+            >
+              {initialsFromDisplayName(name)}
+            </span>
+            <span className="text-sm font-medium leading-tight text-text">{name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 type DetailTab =
   | 'overview'
   | 'calls'
@@ -63,7 +128,7 @@ const TABS: { id: DetailTab; label: string }[] = [
   { id: 'calls', label: 'Calls' },
   { id: 'performance', label: 'Performance' },
   { id: 'ai', label: 'AI insights' },
-  { id: 'agents', label: 'Agents' },
+  { id: 'agents', label: 'Team' },
   { id: 'scripts', label: 'Scripts' },
   { id: 'monitor', label: 'Live monitor' },
   { id: 'settings', label: 'Settings' },
@@ -199,6 +264,17 @@ function OverviewTab({
           <p className="text-xs text-muted">{campaign.timezone}</p>
         </Card>
       </div>
+
+      <Card title="Team" description="Campaign managers and agents on this campaign.">
+        <div className="grid gap-8 sm:grid-cols-2">
+          <OverviewPeopleRow
+            title="Campaign managers"
+            people={campaign.assignedCampaignManagers}
+            salt={1}
+          />
+          <OverviewPeopleRow title="Agents" people={campaign.assignedAgents} salt={7} />
+        </div>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2" title="Quick trend" description="Calls per day (mock data for this campaign).">
@@ -399,6 +475,11 @@ function AgentsTab({
 
   return (
     <div className="space-y-6">
+      <Card title="Campaign managers" description="Edit in Settings — Resources.">
+        <p className="text-sm text-text">
+          {campaign.assignedCampaignManagers.join(', ') || '—'}
+        </p>
+      </Card>
       <Card title="Assigned roster" description="Edit roster in Settings — Agents & dialing.">
         <p className="text-sm text-text">{assigned.join(', ') || '—'}</p>
       </Card>

@@ -10,7 +10,7 @@ interface AppShellProps {
   onSectionChange: (s: AppSection) => void
   onReportsMenuNavigate: (id: ReportsMenuId) => void
   campaignRoute: CampaignRouteState
-  onCampaignRoute: (target: 'list' | { detail: string }) => void
+  onCampaignRoute: (target: 'list' | 'wizard' | { detail: string }) => void
   mobileOpen: boolean
   onMobileOpen: () => void
   onMobileClose: () => void
