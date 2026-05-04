@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { SoundboardBundlePreview } from '../components/campaign/SoundboardBundlePreview'
 import { Card } from '../components/ui/Card'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import {
@@ -436,30 +437,61 @@ function AgentsTab({
 }
 
 function ScriptsTab({ campaign }: { campaign: ManagedCampaign }) {
-  const primary = initialScripts.find((s) => s.id === campaign.scriptId)
-  const ab = campaign.abScriptId ? initialScripts.find((s) => s.id === campaign.abScriptId) : null
+  const forCampaign = initialScripts.filter((s) => s.campaignId === campaign.id)
 
   return (
     <div className="space-y-6">
-      <Card title="Primary script">
-        {primary ? (
-          <div className="text-sm">
-            <p className="font-semibold text-text">{primary.name}</p>
-            <p className="mt-1 text-muted">v{primary.version} · conv {primary.conversionPct}% · composite {primary.performancePct}%</p>
-            <p className="mt-3 text-text">{primary.snippet}</p>
+      {campaign.agentSoundboard && (
+        <Card
+          title="AI-generated script"
+          description={`Saved from campaign wizard. Intro and Pitch were generated from your brief; other panels use placeholder lines (demo). Generated ${new Date(campaign.agentSoundboard.generatedAt).toLocaleString()}.`}
+        >
+          <SoundboardBundlePreview bundle={campaign.agentSoundboard} />
+        </Card>
+      )}
+      <Card
+        title="Library scripts"
+        description="Scripts linked from the global library (owned by campaign). Primary and A/B control routing when configured."
+      >
+        {forCampaign.length === 0 ? (
+          <p className="text-sm text-muted">No library scripts are linked to this campaign id yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-border bg-slate-50">
+                  <th className="px-3 py-2 font-semibold">Script</th>
+                  <th className="px-3 py-2 font-semibold">Role</th>
+                  <th className="px-3 py-2 font-semibold">Ver</th>
+                  <th className="px-3 py-2 font-semibold">Conversion</th>
+                  <th className="px-3 py-2 font-semibold">Composite</th>
+                  <th className="px-3 py-2 font-semibold">Snippet</th>
+                </tr>
+              </thead>
+              <tbody>
+                {forCampaign.map((s) => {
+                  const role =
+                    s.id === campaign.scriptId
+                      ? 'Primary'
+                      : campaign.abScriptId && s.id === campaign.abScriptId
+                        ? 'A/B variant'
+                        : 'Library'
+                  return (
+                    <tr key={s.id} className="border-b border-border/80">
+                      <td className="px-3 py-2 font-medium text-text">{s.name}</td>
+                      <td className="px-3 py-2 text-muted">{role}</td>
+                      <td className="px-3 py-2 tabular-nums">v{s.version}</td>
+                      <td className="px-3 py-2 tabular-nums">{s.conversionPct}%</td>
+                      <td className="px-3 py-2 tabular-nums">{s.performancePct}%</td>
+                      <td className="max-w-[min(28rem,55vw)] px-3 py-2 text-muted">
+                        <span className="line-clamp-2">{s.snippet}</span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <p className="text-sm text-muted">No script linked yet.</p>
-        )}
-      </Card>
-      <Card title="A/B testing (future)">
-        {ab ? (
-          <p className="text-sm text-muted">
-            Variant B: <strong className="text-text">{ab.name}</strong> — traffic split & significance testing
-            wired in a later iteration.
-          </p>
-        ) : (
-          <p className="text-sm text-muted">Single-script mode — add a variant in campaign settings when ready.</p>
         )}
       </Card>
     </div>

@@ -17,6 +17,7 @@ import {
 import { Card } from '../components/ui/Card'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import {
+  callReportCampaigns,
   callReports,
   conversionFunnel,
   initialScripts,
@@ -137,12 +138,16 @@ function AgentPerformanceReport() {
 }
 
 function ScriptsReport() {
+  const campaignName = (id: string) =>
+    callReportCampaigns.find((c) => c.id === id)?.name ?? id
   const rows = initialScripts.map((s) => ({
+    id: s.id,
     name: s.name,
     version: s.version,
     performancePct: s.performancePct,
     conversionPct: s.conversionPct,
     avgDurationMin: s.avgDurationMin,
+    campaign: campaignName(s.campaignId),
   }))
   return (
     <div className="space-y-6">
@@ -155,6 +160,7 @@ function ScriptsReport() {
             <thead>
               <tr className="border-b border-border bg-slate-50">
                 <th className="px-4 py-3 font-semibold">Script</th>
+                <th className="px-4 py-3 font-semibold">Campaign</th>
                 <th className="px-4 py-3 font-semibold">Ver</th>
                 <th className="px-4 py-3 font-semibold">Composite</th>
                 <th className="px-4 py-3 font-semibold">Conversion</th>
@@ -163,8 +169,9 @@ function ScriptsReport() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.name} className="border-b border-border/80">
+                <tr key={row.id} className="border-b border-border/80">
                   <td className="px-4 py-3 font-medium">{row.name}</td>
+                  <td className="px-4 py-3 text-muted">{row.campaign}</td>
                   <td className="px-4 py-3">v{row.version}</td>
                   <td className="px-4 py-3 tabular-nums">{row.performancePct}%</td>
                   <td className="px-4 py-3 tabular-nums text-primary">{row.conversionPct}%</td>

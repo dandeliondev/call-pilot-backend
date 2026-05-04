@@ -1,12 +1,20 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
-import { generateCampaignFromDescription } from '../lib/campaignAiMock'
+import {
+  generateAgentSoundboard,
+  generateCampaignFromDescription,
+} from '../lib/campaignAiMock'
 import { createCampaign, listKnownAgents } from '../mock/campaignsStore'
 import { initialScripts } from '../mock/data'
-import type { CampaignLifecycleState, ManagedCampaign } from '../types/app'
+import { SoundboardBundlePreview } from '../components/campaign/SoundboardBundlePreview'
+import type {
+  AgentSoundboardBundle,
+  CampaignLifecycleState,
+  ManagedCampaign,
+} from '../types/app'
 
-const STEPS = ['Describe', 'Configure', 'Resources', 'Launch'] as const
+const STEPS = ['Describe', 'Configure', 'Resources', 'Scripts', 'Launch'] as const
 
 const TIMEZONES = [
   'America/New_York',
@@ -65,10 +73,15 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   const [selectedAgents, setSelectedAgents] = useState<string[]>(() =>
     agentsPool.slice(0, 2),
   )
-  const [scriptId, setScriptId] = useState<string>('s1')
-  const [abScriptId, setAbScriptId] = useState<string>('')
   const [callLimitDaily, setCallLimitDaily] = useState(400)
   const [pacingSecondsBetweenCalls, setPacingSecondsBetweenCalls] = useState(15)
+
+  const [scriptSource, setScriptSource] = useState<'library' | 'soundboard'>('library')
+  const [scriptId, setScriptId] = useState<string>('s1')
+  const [abScriptId, setAbScriptId] = useState<string>('')
+  const [soundboardBundle, setSoundboardBundle] = useState<AgentSoundboardBundle | null>(
+    null,
+  )
 
   function runAi() {
     if (!brief.trim()) {
@@ -94,6 +107,24 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     )
   }
 
+  function runSoundboardGenerate() {
+    if (!brief.trim()) {
+      toast.error('Add a campaign brief on “Describe” first, or go back to that step.')
+      return
+    }
+    const fallback = generateCampaignFromDescription(brief)
+    const bundle = generateAgentSoundboard({
+      description: brief,
+      audience: audience.trim() || fallback.audience,
+      objective: objective.trim() || fallback.objective,
+      tone: tone.trim() || fallback.tone,
+    })
+    setSoundboardBundle(bundle)
+    toast.success(
+      'Script generated — intro & pitch follow your brief; other panels use placeholder lines.',
+    )
+  }
+
   function applyTemplate(id: (typeof TEMPLATES)[number]['id']) {
     const t = TEMPLATES.find((x) => x.id === id)
     if (!t) return
@@ -108,6 +139,10 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     }
     if (!brief.trim()) {
       toast.error('Add a short campaign brief.')
+      return
+    }
+    if (scriptSource === 'soundboard' && !soundboardBundle) {
+      toast.error('Generate your script on the Scripts step before launching.')
       return
     }
     const scriptMeta = initialScripts.find((s) => s.id === scriptId)
@@ -138,16 +173,17 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       scheduleEnd: null,
       timezone,
       assignedAgents: selectedAgents.length ? selectedAgents : agentsPool.slice(0, 2),
-      scriptId,
-      scriptName: scriptMeta?.name ?? null,
+      scriptId: scriptSource === 'library' ? scriptId : null,
+      scriptName: scriptSource === 'library' ? scriptMeta?.name ?? null : null,
       callLimitDaily,
       pacingSecondsBetweenCalls,
       aiAudience: audience || generateCampaignFromDescription(brief).audience,
       aiObjective: objective || generateCampaignFromDescription(brief).objective,
       aiSuggestedScript: suggestedScript || generateCampaignFromDescription(brief).suggestedScript,
       aiTone: tone || generateCampaignFromDescription(brief).tone,
-      abScriptId: abScriptId || null,
+      abScriptId: scriptSource === 'library' ? abScriptId || null : null,
       templateId: null,
+      agentSoundboard: scriptSource === 'soundboard' ? soundboardBundle ?? undefined : undefined,
     }
 
     createCampaign(record)
@@ -338,9 +374,9 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       {step === 2 && (
         <Card
           title="Assign resources"
-          description="Agents, primary script, optional A/B script (future traffic split), pacing."
+          description="Agents and dialing limits. Scripts are configured on the next step."
         >
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
               <p className="mb-2 text-sm font-medium text-text">Agents / teams</p>
               <div className="flex flex-wrap gap-2">
@@ -364,40 +400,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
                 ))}
               </div>
             </div>
-            <label className="block text-sm">
-              <span className="text-muted">Primary script</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={scriptId}
-                onChange={(e) => setScriptId(e.target.value)}
-              >
-                {initialScripts.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} (v{s.version})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-muted">A/B script (optional)</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
-                value={abScriptId}
-                onChange={(e) => setAbScriptId(e.target.value)}
-              >
-                <option value="">None — single script</option>
-                {initialScripts
-                  .filter((s) => s.id !== scriptId)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </select>
-              <span className="mt-1 block text-xs text-muted">
-                Traffic split & winner analytics — wiring ahead; stored for future use.
-              </span>
-            </label>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm">
                 <span className="text-muted">Daily call limit</span>
@@ -436,19 +439,177 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
               onClick={() => setStep(3)}
               className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
             >
-              Next: Launch
+              Next: Scripts
             </button>
           </div>
         </Card>
       )}
 
       {step === 3 && (
+        <Card
+          title="Scripts"
+          description="Scripts are soundboards (shortcut panels). Use one already in your library, or generate Introduction and Pitch from your brief; other panels stay placeholder lines for now."
+        >
+          <div className="space-y-6">
+            <div className="rounded-xl border border-border bg-slate-50/80 p-4">
+              <p className="text-sm font-medium text-text">Script setup</p>
+              <p className="mt-1 text-xs text-muted">
+                <strong className="font-medium text-text">Use existing script</strong> pulls a saved
+                soundboard from the library. <strong className="font-medium text-text">Generate with AI</strong>{' '}
+                fills Introduction and Pitch from your campaign brief (demo logic); Rebuttals, FAQs,
+                and the rest use fixed placeholder lines until wired to a model.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScriptSource('library')}
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                    scriptSource === 'library'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  Use existing script
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScriptSource('soundboard')}
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                    scriptSource === 'soundboard'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  Generate with AI
+                </button>
+              </div>
+            </div>
+
+            {scriptSource === 'library' && (
+              <div className="space-y-4">
+                <label className="block text-sm">
+                  <span className="text-muted">Primary script</span>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={scriptId}
+                    onChange={(e) => setScriptId(e.target.value)}
+                  >
+                    {initialScripts.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} (v{s.version})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="text-muted">A/B script (optional)</span>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    value={abScriptId}
+                    onChange={(e) => setAbScriptId(e.target.value)}
+                  >
+                    <option value="">None — single script</option>
+                    {initialScripts
+                      .filter((s) => s.id !== scriptId)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-muted">
+                    Traffic split & winner analytics — wiring ahead; stored for future use.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {scriptSource === 'soundboard' && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <button
+                    type="button"
+                    onClick={runSoundboardGenerate}
+                    className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
+                  >
+                    ✨ Generate from brief
+                  </button>
+                  <p className="text-xs text-muted">
+                    Uses your brief plus audience / objective / tone from Describe (filled automatically
+                    if you ran “Generate with AI” there).
+                  </p>
+                </div>
+                {soundboardBundle ? (
+                  <>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                      Preview (stored with campaign)
+                    </p>
+                    <SoundboardBundlePreview bundle={soundboardBundle} />
+                  </>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-border bg-white px-3 py-4 text-sm text-muted">
+                    Generate to fill Introduction and Pitch; other panels show predetermined placeholders.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="mt-6 flex justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (scriptSource === 'soundboard' && !soundboardBundle) {
+                  toast.error('Generate your script before continuing.')
+                  return
+                }
+                setStep(4)
+              }}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Next: Launch
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {step === 4 && (
         <Card title="Launch" description="Save as draft or launch — demo persists to browser storage.">
           <ul className="mb-6 space-y-2 text-sm text-muted">
             <li>
               <strong className="text-text">{name || '(unnamed)'}</strong> — {type},{' '}
-              {selectedAgents.length} agent(s), script{' '}
-              {initialScripts.find((s) => s.id === scriptId)?.name ?? scriptId}
+              {selectedAgents.length} agent(s).
+              {scriptSource === 'library' ? (
+                <>
+                  {' '}
+                  Script:{' '}
+                  <strong className="text-text">
+                    {initialScripts.find((s) => s.id === scriptId)?.name ?? scriptId}
+                  </strong>
+                  {abScriptId ? (
+                    <span>
+                      {' '}
+                      · A/B:{' '}
+                      <strong className="text-text">
+                        {initialScripts.find((s) => s.id === abScriptId)?.name ?? abScriptId}
+                      </strong>
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {' '}
+                  Script:{' '}
+                  <strong className="text-text">Generated with AI</strong>
+                  <span className="text-muted"> — intro & pitch from brief</span>
+                </>
+              )}
             </li>
             <li>Daily cap {callLimitDaily}, pacing {pacingSecondsBetweenCalls}s.</li>
           </ul>
@@ -471,7 +632,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
           <div className="mt-6 flex justify-start">
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               className="text-sm font-medium text-muted hover:text-text"
             >
               ← Back

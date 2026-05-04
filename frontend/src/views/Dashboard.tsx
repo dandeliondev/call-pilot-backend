@@ -12,8 +12,6 @@ import {
   Legend,
   BarChart,
   Bar,
-  FunnelChart,
-  Funnel,
 } from 'recharts'
 import { Card } from '../components/ui/Card'
 import { ChartContainer } from '../components/ui/ChartContainer'
@@ -76,6 +74,38 @@ function recommendationBadge(tag: AiRecommendationItem['tag']) {
 }
 
 const outcomeTotal = callOutcomeBreakdown.reduce((s, x) => s + x.value, 0)
+
+function HorizontalConversionFunnel() {
+  const top = conversionFunnel[0]?.value ?? 1
+  return (
+    <div className="flex h-full flex-col justify-center gap-3.5 py-1">
+      {conversionFunnel.map((row) => {
+        const pctOfTop = (row.value / top) * 100
+        const barWidth = Math.max(pctOfTop, 2)
+        return (
+          <div
+            key={row.name}
+            className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(7rem,11rem)_1fr_minmax(9rem,11rem)] sm:gap-4"
+          >
+            <span className="text-sm font-medium text-text">{row.name}</span>
+            <div className="min-h-9 w-full overflow-hidden rounded-lg bg-slate-100">
+              <div
+                className="h-9 max-w-full rounded-lg bg-gradient-to-r from-primary to-primary/75 shadow-sm transition-[width] duration-500"
+                style={{ width: `${barWidth}%` }}
+              />
+            </div>
+            <span className="text-sm tabular-nums text-text sm:text-right">
+              <span className="font-semibold">{row.value.toLocaleString()}</span>{' '}
+              <span className="font-normal text-muted">
+                ({pctOfTop.toFixed(pctOfTop >= 10 ? 0 : 1)}%)
+              </span>
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 interface DashboardProps {
   /** Opens the Live Monitor section (sidebar entry point). */
@@ -141,30 +171,10 @@ export function Dashboard({ onOpenLive }: DashboardProps) {
       <div className="grid gap-6 xl:grid-cols-2">
         <ChartContainer
           title="Conversion funnel"
-          description="From dial attempts to closed outcomes — illustrative pipeline."
+          description="Horizontal view — stage volume vs dialed (top of funnel)."
           height={340}
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <FunnelChart margin={{ top: 16, right: 48, bottom: 16, left: 48 }}>
-              <Tooltip
-                formatter={(value) => [
-                  Number(value ?? 0).toLocaleString(),
-                  'Count',
-                ]}
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: 'var(--shadow-card)',
-                }}
-              />
-              <Funnel
-                dataKey="value"
-                data={conversionFunnel}
-                nameKey="name"
-                isAnimationActive={false}
-              />
-            </FunnelChart>
-          </ResponsiveContainer>
+          <HorizontalConversionFunnel />
         </ChartContainer>
 
         <ChartContainer

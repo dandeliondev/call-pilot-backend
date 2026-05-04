@@ -313,6 +313,7 @@ export const callReports: CallReportRow[] = [
 export const initialScripts: ScriptItem[] = [
   {
     id: 's1',
+    campaignId: 'camp-renewal',
     name: 'Outbound renewal — warm intro',
     version: 3,
     performancePct: 78,
@@ -401,6 +402,7 @@ export const initialScripts: ScriptItem[] = [
   },
   {
     id: 's2',
+    campaignId: 'camp-demo',
     name: 'Inbound demo request',
     version: 2,
     performancePct: 71,
@@ -481,6 +483,7 @@ export const initialScripts: ScriptItem[] = [
   },
   {
     id: 's3',
+    campaignId: 'camp-winback',
     name: 'Win-back — competitor mention',
     version: 3,
     performancePct: 66,
@@ -564,6 +567,69 @@ export const initialScripts: ScriptItem[] = [
       { day: 'May 1', value: 65 },
       { day: 'May 2', value: 65 },
       { day: 'May 3', value: 66 },
+    ],
+  },
+  {
+    id: 's4',
+    campaignId: 'camp-renewal',
+    name: 'Renewal — bundle-first (variant)',
+    version: 1,
+    performancePct: 71,
+    snippet:
+      'Lead with bundled savings before quoting standalone premium; same renewal window qualification.',
+    conversionPct: 24.8,
+    avgDurationMin: 6.9,
+    sentimentScore: 82,
+    outcomeBreakdown: {
+      Booked: 28,
+      'Follow-up': 24,
+      Qualified: 16,
+      Declined: 18,
+      'No answer': 14,
+    },
+    funnel: {
+      dialed: 1420,
+      connected: 1090,
+      qualified: 288,
+      converted: 268,
+    },
+    aiFeedback:
+      'Variant tests a bundle-first story; use when premium shock is the main drop-off driver on the standard opener.',
+    tags: ['Retention', 'A/B'],
+    sections: [
+      {
+        id: 'open',
+        title: 'Opening',
+        body: 'Lead with multi-policy bundle savings framing before disclosing standalone renewal delta.',
+      },
+      {
+        id: 'qual',
+        title: 'Qualification',
+        body: 'Same identity and window checks as primary script; note if they already saw email quote.',
+      },
+      {
+        id: 'close',
+        title: 'Close',
+        body: 'Offer side-by-side: bundle vs last year; book follow-up if they need spousal sign-off.',
+      },
+    ],
+    versionHistory: [
+      {
+        version: 1,
+        conversionPct: 24.8,
+        avgDurationMin: 6.9,
+        aiScore: 80,
+        engagementPct: 69,
+      },
+    ],
+    performanceTrend: [
+      { day: 'Apr 27', value: 68 },
+      { day: 'Apr 28', value: 69 },
+      { day: 'Apr 29', value: 70 },
+      { day: 'Apr 30', value: 70 },
+      { day: 'May 1', value: 71 },
+      { day: 'May 2', value: 72 },
+      { day: 'May 3', value: 72 },
     ],
   },
 ]

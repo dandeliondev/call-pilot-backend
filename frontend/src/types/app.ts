@@ -40,6 +40,34 @@ export type CampaignLifecycleState =
 
 export type CampaignType = 'outbound' | 'inbound'
 
+/** One line in an agent “soundboard” (shortcut + text, classic dialer style). */
+export interface SoundboardLine {
+  shortcut: string
+  text: string
+  tag?: string
+}
+
+export interface SoundboardPanel {
+  id: string
+  title: string
+  items: SoundboardLine[]
+}
+
+/**
+ * Full soundboard draft: **intro** and **pitch** are generated (mock “AI”);
+ * other panels use fixed placeholder copy until a real model covers them.
+ */
+export interface AgentSoundboardBundle {
+  generatedAt: string
+  intro: SoundboardPanel
+  pitch: SoundboardPanel
+  rebuttals: SoundboardPanel
+  faqs: SoundboardPanel
+  conversation: SoundboardPanel
+  pageMessages: SoundboardPanel
+  dtmf: SoundboardPanel
+}
+
 /** Persisted campaign record (demo localStorage). */
 export interface ManagedCampaign {
   id: string
@@ -68,6 +96,8 @@ export interface ManagedCampaign {
   abScriptId: string | null
   /** Template used when creating, if any */
   templateId: string | null
+  /** Wizard-generated soundboard (AI intro/pitch + dummy sections). */
+  agentSoundboard?: AgentSoundboardBundle
 }
 
 export interface CallReportRow {
@@ -122,6 +152,8 @@ export interface ScriptSection {
 
 export interface ScriptItem {
   id: string
+  /** Owning campaign — scripts are scoped per campaign in the library. */
+  campaignId: string
   name: string
   version: number
   /** Composite “health” score (legacy headline, still shown as overview) */

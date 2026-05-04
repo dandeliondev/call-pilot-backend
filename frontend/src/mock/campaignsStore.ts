@@ -67,6 +67,7 @@ function defaultCampaign(
     aiTone: extra.aiTone ?? 'Friendly consultative',
     abScriptId: extra.abScriptId ?? null,
     templateId: extra.templateId ?? null,
+    agentSoundboard: extra.agentSoundboard,
   }
 }
 
@@ -85,6 +86,7 @@ export function seedCampaigns(): ManagedCampaign[] {
         scheduleStart: '2026-04-12T13:00:00Z',
         assignedAgents: ['Sarah Chen', 'Marcus Lee', 'Priya Sharma'],
         scriptId: 's1',
+        abScriptId: 's4',
         templateId: 'renewal',
       },
     ),

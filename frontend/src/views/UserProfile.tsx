@@ -14,7 +14,7 @@ import {
 import { Card } from '../components/ui/Card'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import { useMockAuth } from '../hooks/useMockAuth'
-import { callReports, initialScripts } from '../mock/data'
+import { callReportCampaigns, callReports, initialScripts } from '../mock/data'
 import { callAgentLabelForUser } from '../mock/userProfileBridge'
 import type { MockPublicUser, MockRole } from '../mock/usersStore'
 import { CallReports } from './CallReports'
@@ -624,6 +624,7 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
                 <thead>
                   <tr className="border-b border-border bg-slate-50">
                     <th className="px-3 py-2 font-semibold">Script</th>
+                    <th className="px-3 py-2 font-semibold">Campaign</th>
                     <th className="px-3 py-2 font-semibold">Conversion</th>
                     <th className="px-3 py-2 font-semibold">Composite</th>
                   </tr>
@@ -632,6 +633,10 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
                   {initialScripts.map((s) => (
                     <tr key={s.id} className="border-b border-border/80">
                       <td className="px-3 py-2">{s.name}</td>
+                      <td className="px-3 py-2 text-muted">
+                        {callReportCampaigns.find((c) => c.id === s.campaignId)?.name ??
+                          s.campaignId}
+                      </td>
                       <td className="px-3 py-2 tabular-nums">{s.conversionPct}%</td>
                       <td className="px-3 py-2 tabular-nums">{s.performancePct}%</td>
                     </tr>

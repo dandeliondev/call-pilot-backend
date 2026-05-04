@@ -99,6 +99,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
   const [tagDraft, setTagDraft] = useState('')
   const [evalLoading, setEvalLoading] = useState(false)
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null)
+  const [filtersVisible, setFiltersVisible] = useState(true)
   const fetchSeq = useRef(0)
   const skipUrlSync = useRef(true)
 
@@ -404,13 +405,51 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
           <span className="text-muted">(mock dataset)</span>
         </div>
       )}
-      <Card title="Filters" description="Slice the mock dataset — empty outcome/tag selection means no restriction.">
+      <Card
+        padding={false}
+        className="!border-slate-200/90 !bg-gradient-to-br !from-slate-100/95 !to-slate-50/90 !shadow-sm hover:!shadow-md"
+      >
+        <div className="border-b border-slate-200/80 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-semibold tracking-tight text-text">Filters</h3>
+              <p className="mt-1 text-sm text-muted">
+                Slice the mock dataset — empty outcome/tag selection means no restriction.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFiltersVisible((v) => !v)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300/90 bg-white/90 px-3 py-2 text-sm font-medium text-text shadow-sm transition-colors hover:bg-white"
+              aria-expanded={filtersVisible}
+            >
+              {filtersVisible ? (
+                <>
+                  Hide filters
+                  <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Show filters
+                  <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {filtersVisible && (
+          <div className="space-y-4 px-5 pb-5 pt-4">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label className="block text-sm">
             <span className="text-muted">Date from</span>
             <input
               type="date"
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
               value={filters.dateFrom}
               onChange={(e) => setFilters((p) => ({ ...p, dateFrom: e.target.value }))}
             />
@@ -419,7 +458,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
             <span className="text-muted">Date to</span>
             <input
               type="date"
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
               value={filters.dateTo}
               onChange={(e) => setFilters((p) => ({ ...p, dateTo: e.target.value }))}
             />
@@ -428,7 +467,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
             <label className="block text-sm">
               <span className="text-muted">Campaign</span>
               <select
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
                 value={filters.campaignId}
                 onChange={(e) => setFilters((p) => ({ ...p, campaignId: e.target.value }))}
               >
@@ -444,7 +483,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
           <label className="block text-sm">
             <span className="text-muted">Sentiment</span>
             <select
-              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
               value={filters.sentiment}
               onChange={(e) =>
                 setFilters((p) => ({
@@ -515,7 +554,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
                 type="number"
                 min={0}
                 max={100}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
                 value={filters.aiMin}
                 onChange={(e) =>
                   setFilters((p) => ({ ...p, aiMin: Number(e.target.value) || 0 }))
@@ -528,7 +567,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
                 type="number"
                 min={0}
                 max={100}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
                 value={filters.aiMax}
                 onChange={(e) =>
                   setFilters((p) => ({ ...p, aiMax: Number(e.target.value) || 100 }))
@@ -542,7 +581,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
               <input
                 type="number"
                 min={0}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
                 value={filters.durMinSec}
                 onChange={(e) =>
                   setFilters((p) => ({ ...p, durMinSec: Number(e.target.value) || 0 }))
@@ -554,7 +593,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
               <input
                 type="number"
                 min={0}
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm shadow-sm"
                 value={filters.durMaxSec}
                 onChange={(e) =>
                   setFilters((p) => ({
@@ -567,7 +606,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border pt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-200/90 pt-4">
           <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
@@ -581,26 +620,28 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
           </label>
           <button
             type="button"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-slate-50"
+            className="rounded-lg border border-slate-300/90 bg-white px-3 py-1.5 text-sm shadow-sm hover:bg-slate-50"
             onClick={resetFilters}
           >
             Reset filters
           </button>
           <button
             type="button"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-slate-50"
+            className="rounded-lg border border-slate-300/90 bg-white px-3 py-1.5 text-sm shadow-sm hover:bg-slate-50"
             onClick={exportCsv}
           >
             Export CSV
           </button>
           <button
             type="button"
-            className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/15"
+            className="rounded-lg border border-primary bg-primary/15 px-3 py-1.5 text-sm font-medium text-primary shadow-sm hover:bg-primary/20"
             onClick={copyShareLink}
           >
             Copy share link
           </button>
         </div>
+          </div>
+        )}
       </Card>
 
       <div className="rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3 text-sm text-violet-950">
@@ -640,12 +681,8 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card
-          className="lg:col-span-2"
-          title="Outcome distribution"
-          description="Counts for the filtered set."
-        >
+      <div className="space-y-6">
+        <Card title="Outcome distribution" description="Counts for the filtered set.">
           <div className="flex h-40 items-end gap-2 border-b border-slate-200 pb-2">
             {ALL_OUTCOMES.map((o) => {
               const c = outcomes[o]
@@ -667,7 +704,7 @@ export function CallReports({ lockAgentName, lockCampaignId }: CallReportsProps)
             })}
           </div>
         </Card>
-        <Card className="lg:col-span-3" title="Report table" description="Click a row for full detail.">
+        <Card className="w-full" title="Report table" description="Click a row for full detail.">
           <p className="mb-3 text-sm text-muted">
             Example: set AI max to 70 and sentiment to Negative to mirror “bad calls this week.”
           </p>

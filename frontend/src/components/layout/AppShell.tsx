@@ -35,7 +35,7 @@ export function AppShell({
   const isAgent = section === 'agent'
 
   return (
-    <div className="flex min-h-screen bg-surface">
+    <div className="flex min-h-[100dvh] items-stretch bg-surface">
       <Sidebar
         active={section}
         reportsMenuId={reportsMenuId}
@@ -46,7 +46,7 @@ export function AppShell({
         compact={isAgent}
         isAdmin={isAdmin}
       />
-      <div className="flex min-h-screen flex-1 flex-col md:ml-0">
+      <div className="flex min-h-[100dvh] flex-1 flex-col md:ml-0">
         {!isAgent && (
           <Header
             section={section}

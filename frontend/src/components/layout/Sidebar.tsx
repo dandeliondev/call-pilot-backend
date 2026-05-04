@@ -160,18 +160,16 @@ export function Sidebar({
         />
       )}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-full flex-col border-r border-border bg-white shadow-sm transition-transform duration-200 md:static md:z-0 md:translate-x-0 ${rail} w-56 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed inset-y-0 left-0 z-50 flex min-h-[100dvh] flex-col border-r border-slate-700/70 bg-gradient-to-b from-slate-900 via-slate-900 to-[#0f172a] shadow-[4px_0_24px_-4px_rgba(15,23,42,0.45)] transition-transform duration-200 md:static md:inset-auto md:z-0 md:min-h-[100dvh] md:self-stretch md:translate-x-0 ${rail} w-56 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="flex h-16 items-center gap-2 border-b border-border px-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
+        <div className="flex h-16 items-center gap-2 border-b border-slate-700/60 px-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white shadow-lg shadow-primary/25">
             CP
           </div>
           {!compact && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-text">
-                CallPilot
-              </p>
-              <p className="truncate text-xs text-muted">Demo</p>
+              <p className="truncate text-sm font-semibold text-white">CallPilot</p>
+              <p className="truncate text-xs text-slate-400">Demo</p>
             </div>
           )}
         </div>
@@ -186,13 +184,13 @@ export function Sidebar({
                 title={compact ? item.label : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted hover:bg-slate-50 hover:text-text'
+                    ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
+                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
               >
                 <Icon
                   name={item.icon}
-                  className={`h-5 w-5 shrink-0 ${isActive ? 'text-primary' : ''}`}
+                  className={`h-5 w-5 shrink-0 ${isActive ? 'text-sky-300' : 'text-slate-500'}`}
                 />
                 {!compact && <span className="truncate">{item.label}</span>}
               </button>
@@ -201,7 +199,7 @@ export function Sidebar({
 
           <div className="pt-0.5">
             {!compact && (
-              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
+              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 📊 Reports Menu
               </p>
             )}
@@ -218,13 +216,13 @@ export function Sidebar({
               title={compact ? 'Reports' : undefined}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                 reportsMenuActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted hover:bg-slate-50 hover:text-text'
+                  ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
+                  : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
               }`}
             >
               <Icon
                 name="chart"
-                className={`h-5 w-5 shrink-0 ${reportsMenuActive ? 'text-primary' : ''}`}
+                className={`h-5 w-5 shrink-0 ${reportsMenuActive ? 'text-sky-300' : 'text-slate-500'}`}
               />
               {!compact && (
                 <>
@@ -242,7 +240,7 @@ export function Sidebar({
             </button>
 
             {reportsOpen && !compact && (
-              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-border pl-2">
+              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-slate-600 pl-2">
                 {REPORT_MENU.map(({ id, label }) => {
                   const isSubActive = isReportsSubActive(active, reportsMenuId, id)
                   return (
@@ -255,8 +253,8 @@ export function Sidebar({
                       }}
                       className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
                         isSubActive
-                          ? 'bg-primary/15 text-primary'
-                          : 'text-muted hover:bg-slate-50 hover:text-text'
+                          ? 'bg-primary/20 text-sky-200'
+                          : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
                       }`}
                     >
                       {label}
@@ -277,13 +275,13 @@ export function Sidebar({
                 title={compact ? item.label : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted hover:bg-slate-50 hover:text-text'
+                    ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
+                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
               >
                 <Icon
                   name={item.icon}
-                  className={`h-5 w-5 shrink-0 ${isActive ? 'text-primary' : ''}`}
+                  className={`h-5 w-5 shrink-0 ${isActive ? 'text-sky-300' : 'text-slate-500'}`}
                 />
                 {!compact && (
                   <span className="truncate">
@@ -297,8 +295,8 @@ export function Sidebar({
           })}
         </nav>
         {!compact && (
-          <div className="border-t border-border p-3">
-            <p className="text-xs text-muted">
+          <div className="border-t border-slate-700/60 p-3">
+            <p className="text-xs text-slate-500">
               Auth & users: browser demo · AI simulated
             </p>
           </div>
