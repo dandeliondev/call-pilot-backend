@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
-import { useMockAuth } from '../hooks/useMockAuth'
+import { useAuth } from '../hooks/useAuth'
 
 export function AuthPage() {
-  const { login, register } = useMockAuth()
+  const { login, register } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -17,14 +17,14 @@ export function AuthPage() {
     try {
       if (mode === 'login') {
         await login(email, password)
-        toast.success('Signed in (demo)')
+        toast.success('Signed in')
       } else {
-        if (password.length < 6) {
-          toast.error('Use at least 6 characters for this demo')
+        if (password.length < 8) {
+          toast.error('Password must be at least 8 characters')
           return
         }
         await register(name, email, password)
-        toast.success('Account created (stored in browser only)')
+        toast.success('Account created — check your email to verify')
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong')
@@ -40,8 +40,8 @@ export function AuthPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white">
             PC
           </div>
-          <h1 className="text-xl font-semibold text-text">Proj-Cicero</h1>
-          <p className="text-sm text-muted">Authentication UI (mock — browser only)</p>
+          <h1 className="text-xl font-semibold text-text">ProSpeaking Portal</h1>
+          <p className="text-sm text-muted">Sign in to continue</p>
         </div>
         <Card>
           <div className="mb-4 flex rounded-lg bg-slate-100 p-1">
@@ -104,7 +104,7 @@ export function AuthPage() {
                 autoComplete={
                   mode === 'login' ? 'current-password' : 'new-password'
                 }
-                minLength={mode === 'register' ? 6 : undefined}
+                minLength={mode === 'register' ? 8 : undefined}
               />
             </div>
             <button
@@ -117,9 +117,7 @@ export function AuthPage() {
           </form>
         </Card>
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-950">
-          Demo accounts: <strong>admin@demo.local</strong> / <strong>demo1234</strong>
-          {' · '}
-          <strong>agent@demo.local</strong> / <strong>demo1234</strong>
+          Dev admin: <strong>admin@prospeaking.test</strong> / <strong>password</strong>
         </p>
       </div>
     </div>

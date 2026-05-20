@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
+import { AuthProvider } from './context/AuthProvider'
 import { MockAuthProvider } from './context/MockAuthProvider'
+import { useAuth } from './hooks/useAuth'
 import { useMockAuth } from './hooks/useMockAuth'
 import type { AppSection, CampaignRouteState, ReportsMenuId } from './types/app'
 import { AIInsights } from './views/AIInsights'
@@ -28,7 +30,8 @@ const REPORT_PAGE_TITLES: Record<ReportsMenuId, string> = {
 }
 
 function MainApp() {
-  const { user, logout, directory } = useMockAuth()
+  const { user, status, logout } = useAuth()
+  const { directory } = useMockAuth()
   const [section, setSection] = useState<AppSection>('dashboard')
   const [reportsMenuId, setReportsMenuId] = useState<ReportsMenuId>('overview')
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
@@ -113,6 +116,14 @@ function MainApp() {
     return undefined
   }, [activeSection, reportsMenuId, profileUserId, directory, campaignNav])
 
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <div className="text-sm text-muted">Loading…</div>
+      </div>
+    )
+  }
+
   if (!user) {
     return <AuthPage />
   }
@@ -193,8 +204,10 @@ function MainApp() {
 
 export default function App() {
   return (
-    <MockAuthProvider>
-      <MainApp />
-    </MockAuthProvider>
+    <AuthProvider>
+      <MockAuthProvider>
+        <MainApp />
+      </MockAuthProvider>
+    </AuthProvider>
   )
 }
