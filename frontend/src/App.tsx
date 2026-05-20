@@ -3,6 +3,7 @@ import { AppShell } from './components/layout/AppShell'
 import { AuthProvider } from './context/AuthProvider'
 import { CampaignsProvider } from './context/CampaignsProvider'
 import { MockAuthProvider } from './context/MockAuthProvider'
+import { UsersProvider } from './context/UsersProvider'
 import { useAuth } from './hooks/useAuth'
 import { useMockAuth } from './hooks/useMockAuth'
 import type { AppSection, CampaignRouteState, ReportsMenuId } from './types/app'
@@ -207,9 +208,11 @@ export default function App() {
   return (
     <AuthProvider>
       <MockAuthProvider>
-        <CampaignsProvider>
-          <MainApp />
-        </CampaignsProvider>
+        <UsersProvider>
+          <CampaignsProvider>
+            <MainApp />
+          </CampaignsProvider>
+        </UsersProvider>
       </MockAuthProvider>
     </AuthProvider>
   )

@@ -2,30 +2,31 @@ import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
-import { useMockAuth } from '../hooks/useMockAuth'
-import type { MockPublicUser, MockRole, UserStatus } from '../mock/usersStore'
+import { useAuth } from '../hooks/useAuth'
+import { useUsers } from '../hooks/useUsers'
+import {
+  presenceStatus,
+  type ManagedUser,
+  type PresenceStatus,
+  type UserPermissions,
+  type UserRole,
+  type UserStatus,
+} from '../lib/usersApi'
 
-const ROLE_LABELS: Record<MockRole, string> = {
+const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: 'Admin (full control)',
   MANAGER: 'Manager (reports + campaigns)',
   AGENT: 'Agent (call app)',
   ANALYST: 'Analyst (read-only insights)',
 }
 
-const STATUS_UI: Record<
-  UserStatus,
+const PRESENCE_UI: Record<
+  PresenceStatus,
   { label: string; emoji: string; className: string }
 > = {
   active: { label: 'Active', emoji: '🟢', className: 'bg-emerald-50 text-emerald-900 ring-emerald-100' },
   offline: { label: 'Offline', emoji: '⚪', className: 'bg-slate-100 text-slate-700 ring-slate-200' },
   disabled: { label: 'Disabled', emoji: '🔴', className: 'bg-red-50 text-red-900 ring-red-100' },
-}
-
-const AI_AGENT_INSIGHTS: Record<string, string> = {
-  u_seed_agent:
-    'Agent Smith shows strong engagement scores but trails peers on explicit closing asks — coach micro-closes after minute two.',
-  u_seed_admin:
-    'Admin account — primarily QA sampling; conversion reflects blended outbound spot-checks.',
 }
 
 function formatTs(iso: string | null): string {
@@ -42,48 +43,63 @@ interface UserManagementProps {
 }
 
 export function UserManagement({ onOpenProfile }: UserManagementProps) {
+  const { user: me } = useAuth()
   const {
-    directory,
-    updateUserRole,
-    updateUserPermissions,
-    setUserStatus,
-    inviteUser,
-    updateUserName,
-    resetUserPassword,
+    users,
+    loaded,
+    refresh,
+    updateRole,
+    updateStatus,
+    updateName,
+    updatePermissions,
+    resetPassword,
     bulkSetRole,
     bulkSetStatus,
-    importUsersFromCsv,
-    resetDemoData,
-    user: me,
-  } = useMockAuth()
+    importCsv,
+    inviteUser,
+  } = useUsers()
 
   const [search, setSearch] = useState('')
-  const [filterRole, setFilterRole] = useState<MockRole | ''>('')
-  const [filterStatus, setFilterStatus] = useState<UserStatus | ''>('')
+  const [filterRole, setFilterRole] = useState<UserRole | ''>('')
+  const [filterPresence, setFilterPresence] = useState<PresenceStatus | ''>('')
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteName, setInviteName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<MockRole>('AGENT')
+  const [inviteRole, setInviteRole] = useState<UserRole>('AGENT')
   const [inviteSendLink, setInviteSendLink] = useState(true)
+  const [inviteBusy, setInviteBusy] = useState(false)
 
-  const [editUser, setEditUser] = useState<MockPublicUser | null>(null)
+  const [editUser, setEditUser] = useState<ManagedUser | null>(null)
   const [editName, setEditName] = useState('')
+  const [editPerms, setEditPerms] = useState<UserPermissions>({
+    editScripts: false,
+    createCampaigns: false,
+    viewReports: false,
+    aiInsights: false,
+  })
+  const [editBusy, setEditBusy] = useState(false)
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const presenceOf = useMemo(() => {
+    const map = new Map<string, PresenceStatus>()
+    users.forEach((u) => map.set(u.id, presenceStatus(u)))
+    return map
+  }, [users])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return directory.filter((u) => {
+    return users.filter((u) => {
       if (filterRole && u.role !== filterRole) return false
-      if (filterStatus && u.status !== filterStatus) return false
+      if (filterPresence && presenceOf.get(u.id) !== filterPresence) return false
       if (!q) return true
       return (
         u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
       )
     })
-  }, [directory, search, filterRole, filterStatus])
+  }, [users, search, filterRole, filterPresence, presenceOf])
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -102,21 +118,7 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
     setSelected(new Set(filtered.map((u) => u.id)))
   }
 
-  function saveEdit() {
-    if (!editUser) return
-    updateUserName(editUser.id, editName)
-    updateUserPermissions(editUser.id, editPerms)
-    setEditUser(null)
-  }
-
-  const [editPerms, setEditPerms] = useState({
-    editScripts: false,
-    createCampaigns: false,
-    viewReports: false,
-    aiInsights: false,
-  })
-
-  function openEditModal(u: MockPublicUser) {
+  function openEditModal(u: ManagedUser) {
     setEditUser(u)
     setEditName(u.name)
     setEditPerms({ ...u.permissions })
@@ -126,35 +128,114 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
     setEditUser(null)
   }
 
-  function submitInvite() {
+  async function saveEdit() {
+    if (!editUser) return
+    setEditBusy(true)
+    try {
+      if (editName.trim() && editName.trim() !== editUser.name) {
+        await updateName(editUser.id, editName.trim())
+      }
+      await updatePermissions(editUser.id, editPerms)
+      toast.success('User updated')
+      setEditUser(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update user')
+    } finally {
+      setEditBusy(false)
+    }
+  }
+
+  async function submitInvite() {
     if (!inviteName.trim() || !inviteEmail.trim()) {
       toast.error('Name and email are required')
       return
     }
-    inviteUser({
-      name: inviteName,
-      email: inviteEmail,
-      role: inviteRole,
-      sendInvite: inviteSendLink,
-    })
-    setInviteOpen(false)
-    setInviteName('')
-    setInviteEmail('')
-    setInviteRole('AGENT')
-    setInviteSendLink(true)
+    setInviteBusy(true)
+    try {
+      const result = await inviteUser({
+        name: inviteName.trim(),
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        sendInvite: inviteSendLink,
+      })
+      if (inviteSendLink) {
+        toast.success(`Invite sent — link: ${result.invitationLink}`)
+      } else {
+        toast.success('User added — temp password: InviteTemp1!')
+      }
+      setInviteOpen(false)
+      setInviteName('')
+      setInviteEmail('')
+      setInviteRole('AGENT')
+      setInviteSendLink(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to invite user')
+    } finally {
+      setInviteBusy(false)
+    }
   }
 
-  function onImportFile(e: ChangeEvent<HTMLInputElement>) {
+  async function onImportFile(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const text = String(reader.result ?? '')
-      const n = importUsersFromCsv(text)
-      toast.message(`Imported ${n} user(s) (CSV)`)
+    try {
+      const result = await importCsv(f)
+      toast.message(`Imported ${result.created} user(s), skipped ${result.skipped}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'CSV import failed')
+    } finally {
+      e.target.value = ''
     }
-    reader.readAsText(f)
-    e.target.value = ''
+  }
+
+  async function onChangeRole(id: string, role: UserRole) {
+    try {
+      await updateRole(id, role)
+      toast.success('Role updated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update role')
+    }
+  }
+
+  async function onToggleDisabled(u: ManagedUser) {
+    const target: UserStatus = u.status === 'disabled' ? 'active' : 'disabled'
+    try {
+      await updateStatus(u.id, target)
+      toast.success(target === 'disabled' ? 'User disabled' : 'User enabled')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update status')
+    }
+  }
+
+  async function onResetPassword(id: string) {
+    try {
+      const temp = await resetPassword(id)
+      toast.success(`Password reset to ${temp}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not reset password')
+    }
+  }
+
+  async function onBulkSetRole(role: UserRole) {
+    try {
+      const res = await bulkSetRole([...selected], role)
+      toast.success(`Updated role for ${res.updated} user(s)`)
+      if (res.skipped.length > 0) toast.message(`Skipped ${res.skipped.length} (guardrails).`)
+      setSelected(new Set())
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Bulk update failed')
+    }
+  }
+
+  async function onBulkSetStatus(status: UserStatus) {
+    try {
+      const res = await bulkSetStatus([...selected], status)
+      toast.success(`Updated status for ${res.updated} user(s)`)
+      if (res.skipped.length > 0) toast.message(`Skipped ${res.skipped.length} (guardrails).`)
+      setSelected(new Set())
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Bulk update failed')
+    }
   }
 
   const bulkIds = [...selected]
@@ -163,7 +244,7 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
     <div className="space-y-6">
       <Card
         title="User management"
-        description="Directory stored in the browser (v2). CSV import: header row then name,email,role (admin | manager | agent | analyst)."
+        description="Directory backed by the Laravel API. CSV import: header row then name,email,role (admin | manager | agent | analyst)."
       >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted">
@@ -193,10 +274,10 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
             />
             <button
               type="button"
-              onClick={resetDemoData}
+              onClick={() => void refresh()}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
             >
-              Reset demo users
+              Refresh
             </button>
           </div>
         </div>
@@ -212,10 +293,10 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
           <select
             className="rounded-lg border border-border px-3 py-2 text-sm"
             value={filterRole}
-            onChange={(e) => setFilterRole((e.target.value || '') as MockRole | '')}
+            onChange={(e) => setFilterRole((e.target.value || '') as UserRole | '')}
           >
             <option value="">All roles</option>
-            {(Object.keys(ROLE_LABELS) as MockRole[]).map((r) => (
+            {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABELS[r]}
               </option>
@@ -223,13 +304,15 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
           </select>
           <select
             className="rounded-lg border border-border px-3 py-2 text-sm"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus((e.target.value || '') as UserStatus | '')}
+            value={filterPresence}
+            onChange={(e) =>
+              setFilterPresence((e.target.value || '') as PresenceStatus | '')
+            }
           >
             <option value="">All statuses</option>
-            {(Object.keys(STATUS_UI) as UserStatus[]).map((s) => (
+            {(Object.keys(PRESENCE_UI) as PresenceStatus[]).map((s) => (
               <option key={s} value={s}>
-                {STATUS_UI[s].emoji} {STATUS_UI[s].label}
+                {PRESENCE_UI[s].emoji} {PRESENCE_UI[s].label}
               </option>
             ))}
           </select>
@@ -242,13 +325,13 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
               className="rounded-md border border-border bg-white px-2 py-1 text-xs"
               defaultValue=""
               onChange={(e) => {
-                const v = e.target.value as MockRole
-                if (v) bulkSetRole(bulkIds, v)
+                const v = e.target.value as UserRole
+                if (v) void onBulkSetRole(v)
                 e.target.value = ''
               }}
             >
               <option value="">Bulk set role…</option>
-              {(Object.keys(ROLE_LABELS) as MockRole[]).map((r) => (
+              {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
                 <option key={r} value={r}>
                   {r}
                 </option>
@@ -257,14 +340,14 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
             <button
               type="button"
               className="rounded-md border border-border bg-white px-2 py-1 text-xs"
-              onClick={() => bulkSetStatus(bulkIds, 'disabled')}
+              onClick={() => void onBulkSetStatus('disabled')}
             >
               Disable selected
             </button>
             <button
               type="button"
               className="rounded-md border border-border bg-white px-2 py-1 text-xs"
-              onClick={() => bulkSetStatus(bulkIds, 'active')}
+              onClick={() => void onBulkSetStatus('active')}
             >
               Activate selected
             </button>
@@ -279,9 +362,7 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
                   <input
                     type="checkbox"
                     aria-label="Select all"
-                    checked={
-                      filtered.length > 0 && selected.size === filtered.length
-                    }
+                    checked={filtered.length > 0 && selected.size === filtered.length}
                     onChange={toggleSelectAll}
                   />
                 </th>
@@ -298,7 +379,8 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
             </thead>
             <tbody>
               {filtered.map((u) => {
-                const st = STATUS_UI[u.status]
+                const presence = presenceOf.get(u.id) ?? 'offline'
+                const st = PRESENCE_UI[presence]
                 return (
                   <tr key={u.id} className="border-b border-border/80">
                     <td className="py-2 pr-2 align-top">
@@ -327,12 +409,10 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
                     <td className="py-2 pr-3 align-top">
                       <select
                         value={u.role}
-                        onChange={(e) =>
-                          updateUserRole(u.id, e.target.value as MockRole)
-                        }
+                        onChange={(e) => void onChangeRole(u.id, e.target.value as UserRole)}
                         className="max-w-[11rem] rounded-lg border border-border px-2 py-1 text-xs"
                       >
-                        {(Object.keys(ROLE_LABELS) as MockRole[]).map((r) => (
+                        {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
                           <option key={r} value={r}>
                             {r}
                           </option>
@@ -349,12 +429,8 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
                     <td className="py-2 pr-3 align-top tabular-nums">
                       {u.stats.callsHandled.toLocaleString()}
                     </td>
-                    <td className="py-2 pr-3 align-top tabular-nums">
-                      {u.stats.conversionPct}%
-                    </td>
-                    <td className="py-2 pr-3 align-top tabular-nums">
-                      {u.stats.avgAiScore}
-                    </td>
+                    <td className="py-2 pr-3 align-top tabular-nums">{u.stats.conversionPct}%</td>
+                    <td className="py-2 pr-3 align-top tabular-nums">{u.stats.avgAiScore}</td>
                     <td className="py-2 pr-3 align-top text-xs text-muted">
                       {formatTs(u.activity.lastActiveAt)}
                     </td>
@@ -379,19 +455,14 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
                         <button
                           type="button"
                           className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-slate-50"
-                          onClick={() =>
-                            setUserStatus(
-                              u.id,
-                              u.status === 'disabled' ? 'active' : 'disabled',
-                            )
-                          }
+                          onClick={() => void onToggleDisabled(u)}
                         >
                           {u.status === 'disabled' ? 'Enable' : 'Disable'}
                         </button>
                         <button
                           type="button"
                           className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-slate-50"
-                          onClick={() => resetUserPassword(u.id)}
+                          onClick={() => void onResetPassword(u.id)}
                         >
                           Reset PW
                         </button>
@@ -410,26 +481,12 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
+        {!loaded && (
+          <p className="py-8 text-center text-sm text-muted">Loading users…</p>
+        )}
+        {loaded && filtered.length === 0 && (
           <p className="py-8 text-center text-sm text-muted">No users match filters.</p>
         )}
-      </Card>
-
-      <Card title="🧠 Agent insights (AI)" description="Demo coaching hints tied to user IDs.">
-        <ul className="space-y-2 text-sm">
-          {directory.filter((u) => AI_AGENT_INSIGHTS[u.id]).map((u) => (
-            <li
-              key={u.id}
-              className="rounded-lg border border-border bg-slate-50 px-3 py-2"
-            >
-              <span className="font-medium text-text">{u.name}: </span>
-              <span className="text-muted">{AI_AGENT_INSIGHTS[u.id]}</span>
-            </li>
-          ))}
-          {directory.every((u) => !AI_AGENT_INSIGHTS[u.id]) && (
-            <li className="text-muted">No AI insights for current directory.</li>
-          )}
-        </ul>
       </Card>
 
       <Modal
@@ -461,9 +518,9 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
             <select
               className="mt-1 w-full rounded-lg border border-border px-3 py-2"
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as MockRole)}
+              onChange={(e) => setInviteRole(e.target.value as UserRole)}
             >
-              {(Object.keys(ROLE_LABELS) as MockRole[]).map((r) => (
+              {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
                 </option>
@@ -476,14 +533,15 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
               checked={inviteSendLink}
               onChange={(e) => setInviteSendLink(e.target.checked)}
             />
-            <span>Send invite link (demo — URL shown in toast)</span>
+            <span>Send invite link (mail driver = log in dev — link appears in storage/logs/laravel.log)</span>
           </label>
           <button
             type="button"
             onClick={submitInvite}
-            className="w-full rounded-xl bg-primary py-2.5 font-semibold text-white hover:opacity-95"
+            disabled={inviteBusy}
+            className="w-full rounded-xl bg-primary py-2.5 font-semibold text-white hover:opacity-95 disabled:opacity-60"
           >
-            Add user
+            {inviteBusy ? 'Adding…' : 'Add user'}
           </button>
         </div>
       </Modal>
@@ -533,10 +591,11 @@ export function UserManagement({ onOpenProfile }: UserManagementProps) {
             </div>
             <button
               type="button"
-              onClick={saveEdit}
-              className="w-full rounded-xl bg-primary py-2.5 font-semibold text-white hover:opacity-95"
+              onClick={() => void saveEdit()}
+              disabled={editBusy}
+              className="w-full rounded-xl bg-primary py-2.5 font-semibold text-white hover:opacity-95 disabled:opacity-60"
             >
-              Save
+              {editBusy ? 'Saving…' : 'Save'}
             </button>
           </div>
         )}
