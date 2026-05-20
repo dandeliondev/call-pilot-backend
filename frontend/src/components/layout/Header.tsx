@@ -1,4 +1,5 @@
 import { useMatches, useNavigate } from 'react-router-dom'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useAuth } from '../../hooks/useAuth'
 
 interface HeaderProps {
@@ -14,6 +15,13 @@ function pageTitle(matches: ReturnType<typeof useMatches>): string {
     if (handle?.title) return handle.title
   }
   return ''
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
@@ -47,10 +55,17 @@ export function Header({ onMenuClick }: HeaderProps) {
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className="hidden max-w-[220px] truncate rounded-lg px-2 py-1 text-xs font-medium text-muted hover:bg-slate-100 hover:text-text sm:inline"
+            className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-slate-100"
             title="My profile"
           >
-            {user.name} ({user.email})
+            <Avatar size="sm">
+              <AvatarFallback className="bg-primary text-[10px] font-semibold text-primary-foreground">
+                {initials(user.name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden max-w-[220px] truncate text-xs font-medium text-muted sm:inline">
+              {user.name} ({user.email})
+            </span>
           </button>
         )}
         <button
