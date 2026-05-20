@@ -124,7 +124,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Outbound renewal — warm intro',
     startedAt: '2026-05-01T15:20:00Z',
     tags: ['Hot lead'],
-    transcript: `Agent: Hi Alex, this is Sarah from Proj-Cicero Insurance.\nCustomer: Hi, I only have a minute.\nAgent: I'll be quick—did you get the quote we emailed?\nCustomer: Yes, it seemed high compared to my current plan.\nAgent: Totally fair. Are you comparing premium only, or total out-of-pocket if something happens?\nCustomer: Mostly premium.\nAgent: Got it. If we bundle renters and bump the deductible slightly, I can get you within $12 of your current monthly with better ER coverage. Want me to walk through it?\nCustomer: Okay, but keep it short.\nAgent: Here's the one-page summary…`,
+    transcript: `Agent: Hi Alex, this is Sarah from ProSpeaking Insurance.\nCustomer: Hi, I only have a minute.\nAgent: I'll be quick—did you get the quote we emailed?\nCustomer: Yes, it seemed high compared to my current plan.\nAgent: Totally fair. Are you comparing premium only, or total out-of-pocket if something happens?\nCustomer: Mostly premium.\nAgent: Got it. If we bundle renters and bump the deductible slightly, I can get you within $12 of your current monthly with better ER coverage. Want me to walk through it?\nCustomer: Okay, but keep it short.\nAgent: Here's the one-page summary…`,
   },
   {
     id: 'c2',
@@ -138,7 +138,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Inbound demo request',
     startedAt: '2026-05-02T10:05:00Z',
     tags: ['Needs callback'],
-    transcript: `Agent: Hey Jordan—Marcus from Proj-Cicero.\nCustomer: I'm driving.\nAgent: I'll keep this tight. Quick question: still interested in the demo slot Thursday?\nCustomer: Maybe. What's the catch on pricing?\nAgent: No catch—it's seat-based, cancel anytime. Biggest cost is implementation hours if you want SSO day one.\nCustomer: Send me a one-pager. I'll look tonight.\nAgent: Will do in the next 10 minutes. Text okay?\nCustomer: Yes.`,
+    transcript: `Agent: Hey Jordan—Marcus from ProSpeaking.\nCustomer: I'm driving.\nAgent: I'll keep this tight. Quick question: still interested in the demo slot Thursday?\nCustomer: Maybe. What's the catch on pricing?\nAgent: No catch—it's seat-based, cancel anytime. Biggest cost is implementation hours if you want SSO day one.\nCustomer: Send me a one-pager. I'll look tonight.\nAgent: Will do in the next 10 minutes. Text okay?\nCustomer: Yes.`,
   },
   {
     id: 'c3',
@@ -166,7 +166,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Win-back — competitor mention',
     startedAt: '2026-04-30T09:15:00Z',
     tags: [],
-    transcript: `Agent: Hi—John from Proj-Cicero wellness checks.\nCustomer: Remove me from your list.\nAgent: I can note that. Before I go, was our outreach off-timing or content?\nCustomer: Both. Stop calling.\nAgent: Understood. I'll add you to our do-not-contact list today.`,
+    transcript: `Agent: Hi—John from ProSpeaking wellness checks.\nCustomer: Remove me from your list.\nAgent: I can note that. Before I go, was our outreach off-timing or content?\nCustomer: Both. Stop calling.\nAgent: Understood. I'll add you to our do-not-contact list today.`,
   },
   {
     id: 'c5',
@@ -180,7 +180,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Outbound renewal — warm intro',
     startedAt: '2026-04-29T16:00:00Z',
     tags: ['Needs callback'],
-    transcript: `Agent: (voicemail) Hi Sam, Elena from Proj-Cicero—following up on your renewal window. I'll text a secure link; reply STOP anytime. Thanks!`,
+    transcript: `Agent: (voicemail) Hi Sam, Elena from ProSpeaking—following up on your renewal window. I'll text a secure link; reply STOP anytime. Thanks!`,
   },
   {
     id: 'c6',
@@ -194,7 +194,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Win-back — competitor mention',
     startedAt: '2026-04-27T11:22:00Z',
     tags: ['Wrong number'],
-    transcript: `Agent: Hi, this is Sarah from Proj-Cicero—\nCustomer: You have the wrong person. Goodbye.`,
+    transcript: `Agent: Hi, this is Sarah from ProSpeaking—\nCustomer: You have the wrong person. Goodbye.`,
   },
   {
     id: 'c7',
@@ -208,7 +208,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Inbound demo request',
     startedAt: '2026-05-03T13:10:00Z',
     tags: ['Hot lead'],
-    transcript: `Agent: Marcus from Proj-Cicero — you requested pricing for the enterprise bundle.\nCustomer: Yes, we need SSO and audit logs.\nAgent: Perfect. I'll send the order form with line items; we can start onboarding Monday.\nCustomer: Send it today.`,
+    transcript: `Agent: Marcus from ProSpeaking — you requested pricing for the enterprise bundle.\nCustomer: Yes, we need SSO and audit logs.\nAgent: Perfect. I'll send the order form with line items; we can start onboarding Monday.\nCustomer: Send it today.`,
   },
   {
     id: 'c8',
@@ -222,7 +222,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Outbound renewal — warm intro',
     startedAt: '2026-04-26T08:45:00Z',
     tags: ['Needs callback'],
-    transcript: `Agent: Priya from Proj-Cicero—quick renewal check-in.\nCustomer: Too expensive, email me.\nAgent: I can—what budget range would make this a yes?\nCustomer: Just email.`,
+    transcript: `Agent: Priya from ProSpeaking—quick renewal check-in.\nCustomer: Too expensive, email me.\nAgent: I can—what budget range would make this a yes?\nCustomer: Just email.`,
   },
   {
     id: 'c9',
@@ -278,7 +278,7 @@ export const callReports: CallReportRow[] = [
     campaignName: 'Inbound demo request',
     startedAt: '2026-04-24T12:00:00Z',
     tags: [],
-    transcript: `Agent: (voicemail) Marcus from Proj-Cicero — returning your demo request. Callback at this number.`,
+    transcript: `Agent: (voicemail) Marcus from ProSpeaking — returning your demo request. Callback at this number.`,
   },
   {
     id: 'c13',

@@ -65,7 +65,7 @@ export function InviteAcceptPage() {
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white">
-            PC
+            PS
           </div>
           <h1 className="text-xl font-semibold text-text">Accept invitation</h1>
           <p className="text-sm text-muted">Choose a password to activate your account.</p>

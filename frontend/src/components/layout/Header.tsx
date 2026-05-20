@@ -37,7 +37,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         </button>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
-            Proj-Cicero (Demo Version)
+            ProSpeaking (Demo Version)
           </p>
           <h1 className="text-lg font-semibold text-text md:text-xl">{title}</h1>
         </div>

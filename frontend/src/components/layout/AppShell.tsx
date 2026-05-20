@@ -43,7 +43,7 @@ export function AppShell({ children }: AppShellProps) {
               <div>
                 <p className="text-xs text-muted">Agent workspace</p>
                 <p className="text-sm font-semibold text-text">
-                  Proj-Cicero — Agent App
+                  ProSpeaking — Agent App
                 </p>
               </div>
               <AgentExitButton />
