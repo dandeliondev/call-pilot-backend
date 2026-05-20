@@ -15,9 +15,9 @@ import {
   Legend,
 } from 'recharts'
 import { useNavigate } from 'react-router-dom'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { ChartContainer } from '../components/ui/ChartContainer'
-import { Modal } from '../components/ui/Modal'
+import { LegacyModal as Modal } from '../components/ui/LegacyModal'
 import { objectionShare } from '../mock/data'
 import {
   actionableInsights,

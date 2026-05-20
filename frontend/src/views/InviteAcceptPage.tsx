@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { ApiError, apiFetch } from '../lib/api'
 
 /**

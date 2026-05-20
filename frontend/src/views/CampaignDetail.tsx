@@ -15,7 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 import { SoundboardBundlePreview } from '../components/campaign/SoundboardBundlePreview'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import {
   agentsForCampaign,

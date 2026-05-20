@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-interface CardProps {
+interface LegacyCardProps {
   title?: string
   description?: string
   children: ReactNode
@@ -8,13 +8,17 @@ interface CardProps {
   padding?: boolean
 }
 
-export function Card({
+/**
+ * Pre-shadcn card primitive. New screens should use the shadcn `card`
+ * subcomponents instead. Migrate remaining call sites then delete this file.
+ */
+export function LegacyCard({
   title,
   description,
   children,
   className = '',
   padding = true,
-}: CardProps) {
+}: LegacyCardProps) {
   return (
     <div
       className={`rounded-xl border border-border bg-white shadow-[var(--shadow-card)] transition-shadow duration-200 hover:shadow-[var(--shadow-card-md)] ${padding ? 'p-5' : ''} ${className}`}

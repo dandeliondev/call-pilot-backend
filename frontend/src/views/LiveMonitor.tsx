@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import type { Sentiment } from '../types/app'
 
 type LiveCallPhase = 'Ringing' | 'Connected' | 'Talking'

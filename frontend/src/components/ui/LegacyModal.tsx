@@ -4,7 +4,7 @@ import {
   useCallback,
 } from 'react'
 
-interface ModalProps {
+interface LegacyModalProps {
   open: boolean
   onClose: () => void
   title: string
@@ -12,13 +12,17 @@ interface ModalProps {
   size?: 'md' | 'lg' | 'xl'
 }
 
-export function Modal({
+/**
+ * Pre-shadcn modal primitive. New screens should use shadcn `dialog`
+ * (Radix-based, proper focus trap). Migrate remaining call sites then delete.
+ */
+export function LegacyModal({
   open,
   onClose,
   title,
   children,
   size = 'md',
-}: ModalProps) {
+}: LegacyModalProps) {
   const onKey = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { DataTable, type Column } from '../components/ui/DataTable'
 import { useCampaigns } from '../hooks/useCampaigns'
 import type {

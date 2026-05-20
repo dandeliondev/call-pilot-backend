@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Card } from '../components/ui/Card'
-import { Modal } from '../components/ui/Modal'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
+import { LegacyModal as Modal } from '../components/ui/LegacyModal'
 import { useAuth } from '../hooks/useAuth'
 import { useUsers } from '../hooks/useUsers'
 import {

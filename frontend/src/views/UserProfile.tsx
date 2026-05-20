@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import { useAuth } from '../hooks/useAuth'
 import { useUsers } from '../hooks/useUsers'

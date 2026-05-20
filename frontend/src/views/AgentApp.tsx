@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { pickSuggestions, suggestNextLine } from '../mock/ai'
 import { agentCustomer } from '../mock/data'
 import type { CallOutcome } from '../types/app'

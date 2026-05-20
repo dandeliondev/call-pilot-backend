@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { metricsForCampaign } from '../lib/campaignMetrics'
 import { useCampaigns } from '../hooks/useCampaigns'
 import type { CampaignLifecycleState, ManagedCampaign } from '../types/app'

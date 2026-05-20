@@ -14,7 +14,7 @@ import {
   Bar,
 } from 'recharts'
 import { useNavigate } from 'react-router-dom'
-import { Card } from '../components/ui/Card'
+import { LegacyCard as Card } from '../components/ui/LegacyCard'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import { PeakCallingHeatmap } from '../components/dashboard/PeakCallingHeatmap'
 import {
