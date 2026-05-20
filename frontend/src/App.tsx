@@ -13,6 +13,7 @@ import { CampaignDetail } from './views/CampaignDetail'
 import { CampaignManagement } from './views/CampaignManagement'
 import { CampaignWizard } from './views/CampaignWizard'
 import { Dashboard } from './views/Dashboard'
+import { GeneralSettings } from './views/GeneralSettings'
 import { LiveMonitor } from './views/LiveMonitor'
 import { MyProfile } from './views/MyProfile'
 import { ReportsHub } from './views/ReportsHub'
@@ -50,7 +51,7 @@ function MainApp() {
   }, [user?.id])
 
   const activeSection: AppSection =
-    user && section === 'users' && user.role !== 'ADMIN'
+    user && (section === 'users' || section === 'settings') && user.role !== 'ADMIN'
       ? 'dashboard'
       : section
 
@@ -181,6 +182,9 @@ function MainApp() {
         return <AgentApp />
       case 'profile':
         return <MyProfile />
+      case 'settings':
+        if (!isAdmin) return <Dashboard />
+        return <GeneralSettings />
       default:
         return <Dashboard onOpenLive={() => setSection('live')} />
     }

@@ -10,6 +10,7 @@ const TITLES: Record<AppSection, string> = {
   users: 'User management',
   agent: 'Agent App',
   profile: 'My profile',
+  settings: 'General settings',
 }
 
 interface HeaderProps {
