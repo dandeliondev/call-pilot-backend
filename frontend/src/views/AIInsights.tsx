@@ -14,6 +14,7 @@ import {
   Line,
   Legend,
 } from 'recharts'
+import { useNavigate } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import { Modal } from '../components/ui/Modal'
@@ -53,11 +54,9 @@ function portfolioAvgConversion(): number {
   return Math.round(sum * 10) / 10
 }
 
-interface AIInsightsProps {
-  onOpenScripts?: () => void
-}
-
-export function AIInsights({ onOpenScripts }: AIInsightsProps) {
+export function AIInsights() {
+  const navigate = useNavigate()
+  const onOpenScripts = () => navigate('/scripts')
   const [campaignId, setCampaignId] = useState('')
   const [agentId, setAgentId] = useState('')
   const [rangeDays, setRangeDays] = useState('7')

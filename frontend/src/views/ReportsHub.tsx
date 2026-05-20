@@ -23,6 +23,7 @@ import {
   initialScripts,
   scriptEffectiveness,
 } from '../mock/data'
+import { useParams } from 'react-router-dom'
 import type { ReportsMenuId } from '../types/app'
 import { CallReports } from './CallReports'
 
@@ -335,11 +336,9 @@ function SentimentReport() {
   )
 }
 
-interface ReportsHubProps {
-  menuId: ReportsMenuId
-}
-
-export function ReportsHub({ menuId }: ReportsHubProps) {
+export function ReportsHub() {
+  const params = useParams<{ menu: ReportsMenuId }>()
+  const menuId = (params.menu ?? 'calls') as ReportsMenuId
   switch (menuId) {
     case 'calls':
       return <CallReports />

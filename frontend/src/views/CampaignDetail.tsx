@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   CartesianGrid,
   Cell,
@@ -134,12 +135,11 @@ const TABS: { id: DetailTab; label: string }[] = [
   { id: 'settings', label: 'Settings' },
 ]
 
-interface CampaignDetailProps {
-  campaignId: string
-  onBack: () => void
-}
-
-export function CampaignDetail({ campaignId, onBack }: CampaignDetailProps) {
+export function CampaignDetail() {
+  const navigate = useNavigate()
+  const params = useParams<{ id: string }>()
+  const campaignId = params.id ?? ''
+  const onBack = () => navigate('/campaigns')
   const campaigns = useCampaigns()
   const campaign = campaigns.find((c) => c.id === campaignId) ?? null
   const [tab, setTab] = useState<DetailTab>('overview')

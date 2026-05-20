@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Bar,
@@ -96,12 +97,11 @@ function formatTs(iso: string | null): string {
   }
 }
 
-interface UserProfileProps {
-  userId: string
-  onBack: () => void
-}
-
-export function UserProfile({ userId, onBack }: UserProfileProps) {
+export function UserProfile() {
+  const navigate = useNavigate()
+  const params = useParams<{ id: string }>()
+  const userId = params.id ?? ''
+  const onBack = () => navigate('/users')
   const { user: me } = useAuth()
   const { users, updateRole, updatePermissions, resetPassword } = useUsers()
 

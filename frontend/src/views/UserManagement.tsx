@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
@@ -38,11 +39,9 @@ function formatTs(iso: string | null): string {
   }
 }
 
-interface UserManagementProps {
-  onOpenProfile: (userId: string) => void
-}
-
-export function UserManagement({ onOpenProfile }: UserManagementProps) {
+export function UserManagement() {
+  const navigate = useNavigate()
+  const onOpenProfile = (id: string) => navigate(`/users/${id}`)
   const { user: me } = useAuth()
   const {
     users,

@@ -1,9 +1,13 @@
 import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
 import { useAuth } from '../hooks/useAuth'
 
 export function AuthPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
   const { login, register } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [name, setName] = useState('')
@@ -18,6 +22,7 @@ export function AuthPage() {
       if (mode === 'login') {
         await login(email, password)
         toast.success('Signed in')
+        navigate(from, { replace: true })
       } else {
         if (password.length < 8) {
           toast.error('Password must be at least 8 characters')
@@ -25,6 +30,7 @@ export function AuthPage() {
         }
         await register(name, email, password)
         toast.success('Account created — check your email to verify')
+        navigate(from, { replace: true })
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong')

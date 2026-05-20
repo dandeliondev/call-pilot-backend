@@ -13,6 +13,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts'
+import { useNavigate } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { ChartContainer } from '../components/ui/ChartContainer'
 import { PeakCallingHeatmap } from '../components/dashboard/PeakCallingHeatmap'
@@ -107,12 +108,9 @@ function HorizontalConversionFunnel() {
   )
 }
 
-interface DashboardProps {
-  /** Opens the Live Monitor section (sidebar entry point). */
-  onOpenLive?: () => void
-}
-
-export function Dashboard({ onOpenLive }: DashboardProps) {
+export function Dashboard() {
+  const navigate = useNavigate()
+  const onOpenLive = () => navigate('/live')
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

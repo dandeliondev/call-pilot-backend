@@ -1,36 +1,27 @@
-import type { AppSection } from '../../types/app'
-
-const TITLES: Record<AppSection, string> = {
-  dashboard: 'Dashboard',
-  campaign: 'Campaign management',
-  live: 'Live Monitor',
-  reports: 'Reports',
-  scripts: 'Script Management',
-  insights: 'AI Insights',
-  users: 'User management',
-  agent: 'Agent App',
-  profile: 'My profile',
-  settings: 'General settings',
-}
+import { useMatches, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 
 interface HeaderProps {
-  section: AppSection
-  /** When set, overrides the default title for this section (e.g. report sub-views). */
-  pageTitle?: string
   onMenuClick: () => void
-  userLabel?: string
-  onLogout?: () => void
-  onOpenProfile?: () => void
 }
 
-export function Header({
-  section,
-  pageTitle,
-  onMenuClick,
-  userLabel,
-  onLogout,
-  onOpenProfile,
-}: HeaderProps) {
+function pageTitle(matches: ReturnType<typeof useMatches>): string {
+  // useMatches returns the matched route stack — innermost last. Walk
+  // backwards to find the deepest handle.title, so /campaigns/:id beats
+  // /campaigns.
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const handle = matches[i]?.handle as { title?: string } | undefined
+    if (handle?.title) return handle.title
+  }
+  return ''
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
+  const matches = useMatches()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const title = pageTitle(matches)
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-border bg-white/90 px-4 backdrop-blur-md md:px-6">
       <div className="flex items-center gap-3">
@@ -48,35 +39,30 @@ export function Header({
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Proj-Cicero (Demo Version)
           </p>
-          <h1 className="text-lg font-semibold text-text md:text-xl">
-            {pageTitle ?? TITLES[section]}
-          </h1>
+          <h1 className="text-lg font-semibold text-text md:text-xl">{title}</h1>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {userLabel && onOpenProfile ? (
+        {user && (
           <button
             type="button"
-            onClick={onOpenProfile}
+            onClick={() => navigate('/profile')}
             className="hidden max-w-[220px] truncate rounded-lg px-2 py-1 text-xs font-medium text-muted hover:bg-slate-100 hover:text-text sm:inline"
             title="My profile"
           >
-            {userLabel}
-          </button>
-        ) : userLabel ? (
-          <span className="hidden max-w-[200px] truncate text-xs text-muted sm:inline">
-            {userLabel}
-          </span>
-        ) : null}
-        {onLogout && (
-          <button
-            type="button"
-            onClick={onLogout}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-slate-50"
-          >
-            Log out
+            {user.name} ({user.email})
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            void logout()
+            navigate('/login', { replace: true })
+          }}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-slate-50"
+        >
+          Log out
+        </button>
       </div>
     </header>
   )

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 import { useCampaigns } from '../../hooks/useCampaigns'
-import type { AppSection, CampaignRouteState, ReportsMenuId } from '../../types/app'
+import type { ReportsMenuId } from '../../types/app'
 
 type NavIcon =
   | 'dash'
@@ -13,21 +15,25 @@ type NavIcon =
   | 'phone'
   | 'cog'
 
-const NAV_MAIN: {
-  id: AppSection
+interface NavItem {
+  /** Route the sidebar entry navigates to. */
+  to: string
+  /** Path prefix used to compute the active state. */
+  match: string
   label: string
   icon: NavIcon
   adminOnly?: boolean
-}[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dash' },
-  { id: 'live', label: 'Live Monitor', icon: 'live' },
-  { id: 'scripts', label: 'Script Management', icon: 'doc' },
-  { id: 'users', label: 'User management', icon: 'users', adminOnly: true },
-  { id: 'settings', label: 'General settings', icon: 'cog', adminOnly: true },
-  { id: 'agent', label: 'Agent App', icon: 'phone' },
+}
+
+const NAV_MAIN: NavItem[] = [
+  { to: '/dashboard', match: '/dashboard', label: 'Dashboard', icon: 'dash' },
+  { to: '/live', match: '/live', label: 'Live Monitor', icon: 'live' },
+  { to: '/scripts', match: '/scripts', label: 'Script Management', icon: 'doc' },
+  { to: '/users', match: '/users', label: 'User management', icon: 'users', adminOnly: true },
+  { to: '/settings', match: '/settings', label: 'General settings', icon: 'cog', adminOnly: true },
+  { to: '/agent', match: '/agent', label: 'Agent App', icon: 'phone' },
 ]
 
-/** 📊 Reports Menu — order matches product spec */
 const REPORT_MENU: { id: ReportsMenuId; label: string }[] = [
   { id: 'overview', label: 'Overview (Dashboard)' },
   { id: 'calls', label: 'Calls' },
@@ -40,13 +46,19 @@ const REPORT_MENU: { id: ReportsMenuId; label: string }[] = [
   { id: 'sentiment', label: 'Sentiment' },
 ]
 
-function Icon({
-  name,
-  className,
-}: {
-  name: NavIcon
-  className?: string
-}) {
+function reportsMenuUrl(id: ReportsMenuId): string {
+  if (id === 'overview') return '/dashboard'
+  if (id === 'insights') return '/insights'
+  return `/reports/${id}`
+}
+
+function isReportsSubActive(pathname: string, currentReportsMenu: ReportsMenuId | null, id: ReportsMenuId): boolean {
+  if (id === 'overview') return pathname.startsWith('/dashboard')
+  if (id === 'insights') return pathname === '/insights'
+  return currentReportsMenu === id
+}
+
+function Icon({ name, className }: { name: NavIcon; className?: string }) {
   const c = className ?? 'h-5 w-5'
   switch (name) {
     case 'dash':
@@ -109,46 +121,44 @@ function Icon({
   }
 }
 
-function isReportsSubActive(
-  active: AppSection,
-  reportsMenuId: ReportsMenuId,
-  id: ReportsMenuId,
-): boolean {
-  if (id === 'overview') return active === 'dashboard'
-  if (id === 'insights') return active === 'insights'
-  return active === 'reports' && reportsMenuId === id
-}
-
 interface SidebarProps {
-  active: AppSection
-  reportsMenuId: ReportsMenuId
-  onSelect: (section: AppSection) => void
-  onReportsMenuNavigate: (id: ReportsMenuId) => void
-  campaignRoute: CampaignRouteState
-  onCampaignRoute: (target: 'list' | 'wizard' | { detail: string }) => void
   mobileOpen: boolean
   onMobileClose: () => void
   compact?: boolean
-  isAdmin?: boolean
 }
 
-export function Sidebar({
-  active,
-  reportsMenuId,
-  onSelect,
-  onReportsMenuNavigate,
-  campaignRoute,
-  onCampaignRoute,
-  mobileOpen,
-  onMobileClose,
-  compact,
-  isAdmin = false,
-}: SidebarProps) {
+export function Sidebar({ mobileOpen, onMobileClose, compact }: SidebarProps) {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const params = useParams()
   const campaigns = useCampaigns()
-  const reportsMenuActive =
-    active === 'reports' || active === 'dashboard' || active === 'insights'
 
-  const campaignSectionActive = active === 'campaign'
+  const isAdmin = user?.role === 'ADMIN'
+
+  // Reports menu is "active" anywhere under /reports plus the dashboard/insights aliases.
+  const reportsMenuActive =
+    location.pathname.startsWith('/reports') ||
+    location.pathname.startsWith('/dashboard') ||
+    location.pathname === '/insights'
+
+  const campaignSectionActive = location.pathname.startsWith('/campaigns')
+  const onWizard = location.pathname === '/campaigns/new'
+  const onCampaignList = location.pathname === '/campaigns'
+  const activeCampaignId = location.pathname.startsWith('/campaigns/')
+    && location.pathname !== '/campaigns/new'
+      ? (params.id ?? null)
+      : null
+
+  // currentReportsMenu mirrors the prior `reportsMenuId` state for the sub-active highlight.
+  const currentReportsMenu =
+    location.pathname === '/dashboard'
+      ? 'overview'
+      : location.pathname === '/insights'
+        ? 'insights'
+        : location.pathname.startsWith('/reports/')
+          ? ((params.menu ?? null) as ReportsMenuId | null)
+          : null
 
   const [reportsOpen, setReportsOpen] = useState(true)
   const [campaignsOpen, setCampaignsOpen] = useState(true)
@@ -163,8 +173,8 @@ export function Sidebar({
 
   const visibleMain = NAV_MAIN.filter((item) => !item.adminOnly || isAdmin)
 
-  const handleNav = (id: AppSection) => {
-    onSelect(id)
+  function go(to: string) {
+    navigate(to)
     onMobileClose()
   }
 
@@ -196,12 +206,12 @@ export function Sidebar({
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
           {visibleMain.slice(0, 2).map((item) => {
-            const isActive = active === item.id
+            const isActive = location.pathname.startsWith(item.match)
             return (
               <button
-                key={item.id}
+                key={item.to}
                 type="button"
-                onClick={() => handleNav(item.id)}
+                onClick={() => go(item.to)}
                 title={compact ? item.label : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                   isActive
@@ -222,14 +232,10 @@ export function Sidebar({
             <div className="flex flex-col gap-0.5">
               <button
                 type="button"
-                onClick={() => {
-                  onCampaignRoute('list')
-                  onMobileClose()
-                }}
+                onClick={() => go('/campaigns')}
                 title="Campaigns"
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                  campaignSectionActive &&
-                  (campaignRoute.mode === 'list' || campaignRoute.mode === 'detail')
+                  campaignSectionActive && !onWizard
                     ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
                     : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
@@ -237,22 +243,16 @@ export function Sidebar({
                 <Icon
                   name="megaphone"
                   className={`h-5 w-5 shrink-0 ${
-                    campaignSectionActive &&
-                    (campaignRoute.mode === 'list' || campaignRoute.mode === 'detail')
-                      ? 'text-sky-300'
-                      : 'text-slate-500'
+                    campaignSectionActive && !onWizard ? 'text-sky-300' : 'text-slate-500'
                   }`}
                 />
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  onCampaignRoute('wizard')
-                  onMobileClose()
-                }}
+                onClick={() => go('/campaigns/new')}
                 title="Add new campaign"
                 className={`flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  campaignSectionActive && campaignRoute.mode === 'wizard'
+                  onWizard
                     ? 'bg-primary/25 text-white shadow-[inset_0_0_0_1px_rgba(59,130,246,0.35)]'
                     : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
@@ -272,8 +272,7 @@ export function Sidebar({
                 <button
                   type="button"
                   onClick={() => {
-                    onCampaignRoute('list')
-                    onMobileClose()
+                    go('/campaigns')
                     setCampaignsOpen(true)
                   }}
                   className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-sm font-medium transition-colors ${
@@ -314,12 +313,9 @@ export function Sidebar({
                 <div className="ml-2 mt-0.5 space-y-0.5 border-l border-slate-600 pl-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      onCampaignRoute('wizard')
-                      onMobileClose()
-                    }}
+                    onClick={() => go('/campaigns/new')}
                     className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
-                      campaignSectionActive && campaignRoute.mode === 'wizard'
+                      onWizard
                         ? 'bg-primary/20 text-sky-200'
                         : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
                     }`}
@@ -328,12 +324,9 @@ export function Sidebar({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      onCampaignRoute('list')
-                      onMobileClose()
-                    }}
+                    onClick={() => go('/campaigns')}
                     className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
-                      campaignSectionActive && campaignRoute.mode === 'list'
+                      onCampaignList
                         ? 'bg-primary/20 text-sky-200'
                         : 'text-slate-500 hover:bg-white/[0.06] hover:text-slate-200'
                     }`}
@@ -344,16 +337,12 @@ export function Sidebar({
                     <p className="px-2 py-1 text-[11px] text-slate-600">No campaigns yet</p>
                   ) : (
                     campaigns.map((c) => {
-                      const isSubActive =
-                        campaignRoute.mode === 'detail' && campaignRoute.campaignId === c.id
+                      const isSubActive = activeCampaignId === c.id
                       return (
                         <button
                           key={c.id}
                           type="button"
-                          onClick={() => {
-                            onCampaignRoute({ detail: c.id })
-                            onMobileClose()
-                          }}
+                          onClick={() => go(`/campaigns/${c.id}`)}
                           className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
                             isSubActive
                               ? 'bg-primary/20 text-sky-200'
@@ -377,8 +366,7 @@ export function Sidebar({
               type="button"
               onClick={() => {
                 if (compact) {
-                  onReportsMenuNavigate('calls')
-                  onMobileClose()
+                  go('/reports/calls')
                 } else {
                   setReportsOpen((o) => !o)
                 }
@@ -412,15 +400,12 @@ export function Sidebar({
             {reportsOpen && !compact && (
               <div className="ml-2 mt-0.5 space-y-0.5 border-l border-slate-600 pl-2">
                 {REPORT_MENU.map(({ id, label }) => {
-                  const isSubActive = isReportsSubActive(active, reportsMenuId, id)
+                  const isSubActive = isReportsSubActive(location.pathname, currentReportsMenu, id)
                   return (
                     <button
                       key={id}
                       type="button"
-                      onClick={() => {
-                        onReportsMenuNavigate(id)
-                        onMobileClose()
-                      }}
+                      onClick={() => go(reportsMenuUrl(id))}
                       className={`flex w-full rounded-lg px-2 py-2 text-left text-xs font-medium transition-colors ${
                         isSubActive
                           ? 'bg-primary/20 text-sky-200'
@@ -436,12 +421,12 @@ export function Sidebar({
           </div>
 
           {visibleMain.slice(2).map((item) => {
-            const isActive = active === item.id
+            const isActive = location.pathname.startsWith(item.match)
             return (
               <button
-                key={item.id}
+                key={item.to}
                 type="button"
-                onClick={() => handleNav(item.id)}
+                onClick={() => go(item.to)}
                 title={compact ? item.label : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                   isActive
@@ -455,9 +440,7 @@ export function Sidebar({
                 />
                 {!compact && (
                   <span className="truncate">
-                    {item.id === 'agent'
-                      ? 'Agent App (switch view)'
-                      : item.label}
+                    {item.to === '/agent' ? 'Agent App (switch view)' : item.label}
                   </span>
                 )}
               </button>

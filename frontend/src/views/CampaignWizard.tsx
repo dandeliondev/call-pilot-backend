@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
 import {
@@ -31,12 +32,10 @@ const CALL_FLOW_STEP_LABEL = 'Call Flow & Responses'
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-interface CampaignWizardProps {
-  onCancel: () => void
-  onComplete: (campaignId: string) => void
-}
-
-export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
+export function CampaignWizard() {
+  const navigate = useNavigate()
+  const onCancel = () => navigate('/campaigns')
+  const onComplete = (campaignId: string) => navigate(`/campaigns/${campaignId}`)
   const { agents: agentsPool, managers: managersPool, createCampaign } = useCampaignsContext()
   const [step, setStep] = useState(0)
   const [isGeneratingRandomBrief, setIsGeneratingRandomBrief] = useState(false)

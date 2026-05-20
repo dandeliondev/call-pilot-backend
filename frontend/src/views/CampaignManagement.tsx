@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { metricsForCampaign } from '../lib/campaignMetrics'
 import { useCampaigns } from '../hooks/useCampaigns'
@@ -34,12 +35,10 @@ function formatDate(iso: string): string {
   }
 }
 
-interface CampaignManagementProps {
-  onCreate: () => void
-  onOpenCampaign: (id: string) => void
-}
-
-export function CampaignManagement({ onCreate, onOpenCampaign }: CampaignManagementProps) {
+export function CampaignManagement() {
+  const navigate = useNavigate()
+  const onCreate = () => navigate('/campaigns/new')
+  const onOpenCampaign = (id: string) => navigate(`/campaigns/${id}`)
   const campaigns = useCampaigns()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CampaignLifecycleState | ''>('')
