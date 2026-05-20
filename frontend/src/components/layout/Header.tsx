@@ -9,6 +9,7 @@ const TITLES: Record<AppSection, string> = {
   insights: 'AI Insights',
   users: 'User management',
   agent: 'Agent App',
+  profile: 'My profile',
 }
 
 interface HeaderProps {
@@ -18,6 +19,7 @@ interface HeaderProps {
   onMenuClick: () => void
   userLabel?: string
   onLogout?: () => void
+  onOpenProfile?: () => void
 }
 
 export function Header({
@@ -26,6 +28,7 @@ export function Header({
   onMenuClick,
   userLabel,
   onLogout,
+  onOpenProfile,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-border bg-white/90 px-4 backdrop-blur-md md:px-6">
@@ -50,11 +53,20 @@ export function Header({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {userLabel && (
+        {userLabel && onOpenProfile ? (
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="hidden max-w-[220px] truncate rounded-lg px-2 py-1 text-xs font-medium text-muted hover:bg-slate-100 hover:text-text sm:inline"
+            title="My profile"
+          >
+            {userLabel}
+          </button>
+        ) : userLabel ? (
           <span className="hidden max-w-[200px] truncate text-xs text-muted sm:inline">
             {userLabel}
           </span>
-        )}
+        ) : null}
         {onLogout && (
           <button
             type="button"

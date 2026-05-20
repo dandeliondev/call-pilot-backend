@@ -13,20 +13,33 @@ import {
 } from 'recharts'
 import { Card } from '../components/ui/Card'
 import { ChartContainer } from '../components/ui/ChartContainer'
-import { useMockAuth } from '../hooks/useMockAuth'
+import { useAuth } from '../hooks/useAuth'
+import { useUsers } from '../hooks/useUsers'
+import {
+  presenceStatus,
+  type ManagedUser,
+  type PresenceStatus,
+  type UserPermissions,
+  type UserRole,
+} from '../lib/usersApi'
+import {
+  createUserNote,
+  deleteUserNote,
+  fetchUserNotes,
+  type UserNote,
+} from '../lib/notesApi'
 import { callReportCampaigns, callReports, initialScripts } from '../mock/data'
 import { callAgentLabelForUser } from '../mock/userProfileBridge'
-import type { MockPublicUser, MockRole } from '../mock/usersStore'
 import { CallReports } from './CallReports'
 
-const ROLE_LABELS: Record<MockRole, string> = {
+const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: 'Admin',
   MANAGER: 'Manager',
   AGENT: 'Agent',
   ANALYST: 'Analyst',
 }
 
-const STATUS_LABEL: Record<MockPublicUser['status'], string> = {
+const STATUS_LABEL: Record<PresenceStatus, string> = {
   active: 'Active',
   offline: 'Offline',
   disabled: 'Disabled',
@@ -63,62 +76,6 @@ const TABS: { id: ProfileTab; label: string; group?: 'main' | 'extra' }[] = [
   { id: 'training', label: 'Training', group: 'extra' },
 ]
 
-const NOTES_KEY = 'proj-cicero_profile_notes_v1'
-const SETTINGS_KEY = 'proj-cicero_profile_settings_v1'
-
-type StoredNote = { id: string; body: string; at: string; author: string }
-type StoredSettings = {
-  emailDigest: boolean
-  smsAlerts: boolean
-  themePref: 'system' | 'light' | 'dark'
-}
-
-function loadNotes(userId: string): StoredNote[] {
-  try {
-    const raw = localStorage.getItem(NOTES_KEY)
-    if (!raw) return []
-    const o = JSON.parse(raw) as Record<string, StoredNote[]>
-    return o[userId] ?? []
-  } catch {
-    return []
-  }
-}
-
-function saveNotes(userId: string, notes: StoredNote[]) {
-  try {
-    const raw = localStorage.getItem(NOTES_KEY)
-    const o = raw ? (JSON.parse(raw) as Record<string, StoredNote[]>) : {}
-    o[userId] = notes
-    localStorage.setItem(NOTES_KEY, JSON.stringify(o))
-  } catch {
-    /* ignore */
-  }
-}
-
-function loadSettings(userId: string): StoredSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY)
-    if (!raw) {
-      return { emailDigest: true, smsAlerts: false, themePref: 'system' }
-    }
-    const o = JSON.parse(raw) as Record<string, StoredSettings>
-    return o[userId] ?? { emailDigest: true, smsAlerts: false, themePref: 'system' }
-  } catch {
-    return { emailDigest: true, smsAlerts: false, themePref: 'system' }
-  }
-}
-
-function saveSettings(userId: string, s: StoredSettings) {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY)
-    const o = raw ? (JSON.parse(raw) as Record<string, StoredSettings>) : {}
-    o[userId] = s
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(o))
-  } catch {
-    /* ignore */
-  }
-}
-
 function hashScores(userId: string) {
   let h = 0
   for (let i = 0; i < userId.length; i++) h = (h * 31 + userId.charCodeAt(i)) | 0
@@ -145,22 +102,15 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ userId, onBack }: UserProfileProps) {
-  const {
-    directory,
-    updateUserRole,
-    updateUserPermissions,
-    user: me,
-    resetUserPassword,
-  } = useMockAuth()
+  const { user: me } = useAuth()
+  const { users, updateRole, updatePermissions, resetPassword } = useUsers()
 
-  const subject = useMemo(
-    () => directory.find((u) => u.id === userId) ?? null,
-    [directory, userId],
+  const subject = useMemo<ManagedUser | null>(
+    () => users.find((u) => u.id === userId) ?? null,
+    [users, userId],
   )
 
-  const agentLabel = subject
-    ? callAgentLabelForUser(subject.id, subject.name)
-    : ''
+  const agentLabel = subject ? callAgentLabelForUser(subject.id, subject.name) : ''
 
   const myCalls = useMemo(
     () => (agentLabel ? callReports.filter((r) => r.agent === agentLabel) : []),
@@ -168,27 +118,37 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
   )
 
   const [tab, setTab] = useState<ProfileTab>('overview')
-  const [notes, setNotes] = useState<StoredNote[]>(() => loadNotes(userId))
+  const [notes, setNotes] = useState<UserNote[]>([])
+  const [notesLoaded, setNotesLoaded] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
-  const [settings, setSettings] = useState<StoredSettings>(() => loadSettings(userId))
+  const [noteBusy, setNoteBusy] = useState(false)
 
-  const [permDraft, setPermDraft] = useState(subject?.permissions)
-  const [roleDraft, setRoleDraft] = useState(subject?.role)
+  const [permDraft, setPermDraft] = useState<UserPermissions | undefined>(subject?.permissions)
+  const [roleDraft, setRoleDraft] = useState<UserRole | undefined>(subject?.role)
+  const [rolesBusy, setRolesBusy] = useState(false)
 
   useEffect(() => {
-    setNotes(loadNotes(userId))
-    setSettings(loadSettings(userId))
     setPermDraft(subject?.permissions)
     setRoleDraft(subject?.role)
-  }, [userId, subject])
+  }, [subject])
 
   useEffect(() => {
-    saveNotes(userId, notes)
-  }, [userId, notes])
-
-  useEffect(() => {
-    saveSettings(userId, settings)
-  }, [userId, settings])
+    let cancelled = false
+    setNotesLoaded(false)
+    fetchUserNotes(userId)
+      .then((list) => {
+        if (!cancelled) {
+          setNotes(list)
+          setNotesLoaded(true)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setNotesLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
 
   const scores = useMemo(() => hashScores(userId), [userId])
 
@@ -273,7 +233,7 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
   )
 
   const leaderboard = useMemo(() => {
-    return [...directory]
+    return [...users]
       .map((u) => ({
         id: u.id,
         name: u.name,
@@ -283,13 +243,12 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
       }))
       .sort((a, b) => b.conv - a.conv)
       .map((row, i) => ({ ...row, rank: i + 1 }))
-  }, [directory])
+  }, [users])
 
   const teamPeers = useMemo(() => {
-    return directory.filter((u) => u.id !== userId && u.role === 'AGENT').slice(0, 6)
-  }, [directory, userId])
+    return users.filter((u) => u.id !== userId && u.role === 'AGENT').slice(0, 6)
+  }, [users, userId])
 
-  const dailyCallsTarget = 45
   const weeklyConvTarget = 12
   const callsProgress = Math.min(100, Math.round(((subject?.stats.callsHandled ?? 0) % 200) / 2))
   const convProgress = Math.min(
@@ -297,28 +256,62 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
     Math.round(((subject?.stats.conversionPct ?? 0) / weeklyConvTarget) * 100),
   )
 
-  const addNote = useCallback(() => {
+  const addNote = useCallback(async () => {
     const body = noteDraft.trim()
     if (!body) {
       toast.error('Write a note first')
       return
     }
-    const n: StoredNote = {
-      id: crypto.randomUUID(),
-      body,
-      at: new Date().toISOString(),
-      author: me?.name ?? 'Manager',
+    setNoteBusy(true)
+    try {
+      const created = await createUserNote(userId, body)
+      setNotes((prev) => [created, ...prev])
+      setNoteDraft('')
+      toast.success('Note saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save note')
+    } finally {
+      setNoteBusy(false)
     }
-    setNotes((prev) => [n, ...prev])
-    setNoteDraft('')
-    toast.success('Note saved')
-  }, [noteDraft, me?.name])
+  }, [noteDraft, userId])
 
-  const saveRoles = useCallback(() => {
+  const removeNote = useCallback(
+    async (noteId: string) => {
+      try {
+        await deleteUserNote(userId, noteId)
+        setNotes((prev) => prev.filter((n) => n.id !== noteId))
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not delete note')
+      }
+    },
+    [userId],
+  )
+
+  const saveRoles = useCallback(async () => {
     if (!subject || !roleDraft || !permDraft) return
-    updateUserRole(subject.id, roleDraft)
-    updateUserPermissions(subject.id, permDraft)
-  }, [subject, roleDraft, permDraft, updateUserRole, updateUserPermissions])
+    setRolesBusy(true)
+    try {
+      if (roleDraft !== subject.role) {
+        await updateRole(subject.id, roleDraft)
+      }
+      await updatePermissions(subject.id, permDraft)
+      toast.success('Role and permissions saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save changes')
+    } finally {
+      setRolesBusy(false)
+    }
+  }, [subject, roleDraft, permDraft, updateRole, updatePermissions])
+
+  const sendPasswordReset = useCallback(async () => {
+    if (!subject) return
+    try {
+      const temp = await resetPassword(subject.id)
+      toast.success(`Password reset to ${temp}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not reset password')
+    }
+  }, [subject, resetPassword])
 
   if (!subject) {
     return (
@@ -334,6 +327,8 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
       </div>
     )
   }
+
+  const presence = presenceStatus(subject)
 
   return (
     <div className="space-y-6">
@@ -354,7 +349,7 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
             {ROLE_LABELS[subject.role]}
           </span>
           <span className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium">
-            {STATUS_LABEL[subject.status]}
+            {STATUS_LABEL[presence]}
           </span>
         </div>
       </div>
@@ -497,45 +492,25 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
           </div>
 
           <ChartContainer title="Calls over time (mock)" height={280}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={callsOverTime.length ? callsOverTime : [{ day: '—', calls: 0 }]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+            <ResponsiveContainer>
+              <LineChart data={callsOverTime}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="calls" stroke="#3b82f6" strokeWidth={2} dot />
+                <Line type="monotone" dataKey="calls" stroke="#2563eb" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </ChartContainer>
 
-          <ChartContainer title="Conversion rate trend (illustrative)" height={260}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={convTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <ChartContainer title="Conversion trend (4w, simulated)" height={240}>
+            <ResponsiveContainer>
+              <BarChart data={convTrend}>
+                <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="week" />
-                <YAxis tick={{ fontSize: 11 }} domain={[0, 50]} />
+                <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="pct" stroke="#22c55e" strokeWidth={2} dot />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-
-          <ChartContainer title="AI pillar scores" description="Same dimensions as call evaluation." height={240}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
-                  { name: 'Greeting', score: scores.greeting },
-                  { name: 'Objection handling', score: scores.objection },
-                  { name: 'Closing', score: scores.closing },
-                ]}
-                layout="vertical"
-                margin={{ left: 32, right: 16 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis type="number" domain={[0, 100]} />
-                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="score" fill="#6366f1" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="pct" fill="#16a34a" />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
@@ -543,34 +518,34 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
       )}
 
       {tab === 'calls' && (
-        <CallReports lockAgentName={agentLabel || undefined} />
+        <CallReports filterAgent={agentLabel} title={`Calls handled by ${subject.name}`} />
       )}
 
       {tab === 'ai' && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card title="Strengths">
-            <ul className="list-disc space-y-2 pl-5 text-sm text-text">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card title="AI strengths">
+            <ul className="list-disc space-y-1 pl-5 text-sm">
               {aiCoaching.strengths.map((s) => (
                 <li key={s}>{s}</li>
               ))}
             </ul>
           </Card>
-          <Card title="Weaknesses">
-            <ul className="list-disc space-y-2 pl-5 text-sm text-text">
+          <Card title="Coaching opportunities">
+            <ul className="list-disc space-y-1 pl-5 text-sm">
               {aiCoaching.weaknesses.map((s) => (
                 <li key={s}>{s}</li>
               ))}
             </ul>
           </Card>
-          <Card title="Common objections">
-            <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+          <Card title="Frequent objections">
+            <ul className="list-disc space-y-1 pl-5 text-sm">
               {aiCoaching.objections.map((s) => (
                 <li key={s}>{s}</li>
               ))}
             </ul>
           </Card>
-          <Card title="Suggested improvements">
-            <ul className="list-disc space-y-1 pl-5 text-sm text-text">
+          <Card title="Suggested drills">
+            <ul className="list-disc space-y-1 pl-5 text-sm">
               {aiCoaching.suggestions.map((s) => (
                 <li key={s}>{s}</li>
               ))}
@@ -580,95 +555,61 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
       )}
 
       {tab === 'scripts' && (
-        <div className="space-y-6">
-          <Card
-            title="Scripts used (via campaigns)"
-            description="Aggregated from this agent’s mock calls — campaign name as a proxy for script line."
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-slate-50">
-                    <th className="px-3 py-2 font-semibold">Campaign / line</th>
-                    <th className="px-3 py-2 font-semibold">Calls</th>
-                    <th className="px-3 py-2 font-semibold">Conv.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scriptUsageRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-3 py-4 text-muted">
-                        No calls in mock dataset for this user&apos;s mapped agent.
-                      </td>
-                    </tr>
-                  ) : (
-                    scriptUsageRows.map((row) => (
-                      <tr key={row.name} className="border-b border-border/80">
-                        <td className="px-3 py-2 font-medium">{row.name}</td>
-                        <td className="px-3 py-2 tabular-nums">{row.calls}</td>
-                        <td className="px-3 py-2 tabular-nums text-primary">{row.convPct}%</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-sm text-muted">
-              <span className="font-medium text-text">Preferred script (by volume):</span> {preferredScript}
-            </p>
-          </Card>
-
-          <Card title="Library reference (global)" description="Script Management metrics for comparison.">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-slate-50">
-                    <th className="px-3 py-2 font-semibold">Script</th>
-                    <th className="px-3 py-2 font-semibold">Campaign</th>
-                    <th className="px-3 py-2 font-semibold">Conversion</th>
-                    <th className="px-3 py-2 font-semibold">Composite</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {initialScripts.map((s) => (
-                    <tr key={s.id} className="border-b border-border/80">
-                      <td className="px-3 py-2">{s.name}</td>
-                      <td className="px-3 py-2 text-muted">
-                        {callReportCampaigns.find((c) => c.id === s.campaignId)?.name ??
-                          s.campaignId}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">{s.conversionPct}%</td>
-                      <td className="px-3 py-2 tabular-nums">{s.performancePct}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
+        <Card title="Script usage" description={`Preferred script: ${preferredScript}`}>
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted">
+                <th className="pb-2">Campaign</th>
+                <th className="pb-2 tabular-nums">Calls</th>
+                <th className="pb-2 tabular-nums">Conv. %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scriptUsageRows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-2 text-muted">
+                    No matching call rows for this agent in the mock data.
+                  </td>
+                </tr>
+              )}
+              {scriptUsageRows.map((r) => (
+                <tr key={r.name} className="border-b border-border/70">
+                  <td className="py-2 pr-3">{r.name}</td>
+                  <td className="py-2 pr-3 tabular-nums">{r.calls}</td>
+                  <td className="py-2 tabular-nums">{r.convPct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-3 text-xs text-muted">
+            Reference: campaigns {callReportCampaigns.length}, scripts library {initialScripts.length}.
+          </p>
+        </Card>
       )}
 
       {tab === 'goals' && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card title="Daily target — calls">
-            <p className="text-sm text-muted">Goal: {dailyCallsTarget} dial attempts</p>
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card title="Daily calls">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
               <div
-                className="h-full rounded-full bg-primary transition-all"
+                className="h-full bg-primary"
                 style={{ width: `${callsProgress}%` }}
+                aria-label="Calls progress"
               />
             </div>
-            <p className="mt-2 text-sm text-muted">Progress (demo): {callsProgress}%</p>
+            <p className="mt-2 text-xs text-muted">
+              Calls handled: {subject.stats.callsHandled}
+            </p>
           </Card>
-          <Card title="Weekly target — conversions">
-            <p className="text-sm text-muted">Goal: {weeklyConvTarget} booked</p>
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+          <Card title="Weekly conversion">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all"
+                className="h-full bg-emerald-500"
                 style={{ width: `${convProgress}%` }}
+                aria-label="Conversion progress"
               />
             </div>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-2 text-xs text-muted">
               Achievement vs goal: {convProgress}% (based on directory conversion %)
             </p>
           </Card>
@@ -676,25 +617,27 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
       )}
 
       {tab === 'notes' && (
-        <Card title="Manager notes & coaching logs">
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <textarea
-                className="min-h-[88px] flex-1 rounded-lg border border-border px-3 py-2 text-sm"
-                placeholder="Needs improvement in objection handling…"
-                value={noteDraft}
-                onChange={(e) => setNoteDraft(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={addNote}
-                className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
-              >
-                Add note
-              </button>
-            </div>
-            <ul className="space-y-3">
-              {notes.length === 0 ? (
+        <Card title="Notes & feedback" description="Persisted on the server, visible to admins only.">
+          <div className="space-y-3">
+            <textarea
+              className="w-full rounded-lg border border-border p-3 text-sm"
+              rows={3}
+              placeholder="Add coaching notes…"
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => void addNote()}
+              disabled={noteBusy}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
+            >
+              {noteBusy ? 'Saving…' : 'Save note'}
+            </button>
+            <ul className="space-y-2">
+              {!notesLoaded ? (
+                <li className="text-sm text-muted">Loading…</li>
+              ) : notes.length === 0 ? (
                 <li className="text-sm text-muted">No notes yet.</li>
               ) : (
                 notes.map((n) => (
@@ -702,9 +645,18 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
                     key={n.id}
                     className="rounded-lg border border-border bg-slate-50/80 px-3 py-2 text-sm"
                   >
-                    <p className="text-text">{n.body}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-text">{n.body}</p>
+                      <button
+                        type="button"
+                        onClick={() => void removeNote(n.id)}
+                        className="shrink-0 text-xs text-muted hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
                     <p className="mt-1 text-xs text-muted">
-                      {n.author} · {formatTs(n.at)}
+                      {n.authorName ?? 'Unknown'} · {formatTs(n.createdAt)}
                     </p>
                   </li>
                 ))
@@ -722,9 +674,9 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
               <select
                 className="mt-1 w-full rounded-lg border border-border px-3 py-2"
                 value={roleDraft ?? subject.role}
-                onChange={(e) => setRoleDraft(e.target.value as MockRole)}
+                onChange={(e) => setRoleDraft(e.target.value as UserRole)}
               >
-                {(Object.keys(ROLE_LABELS) as MockRole[]).map((r) => (
+                {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
                   <option key={r} value={r}>
                     {ROLE_LABELS[r]}
                   </option>
@@ -756,10 +708,11 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
             </div>
             <button
               type="button"
-              onClick={saveRoles}
-              className="rounded-xl bg-primary px-4 py-2 font-semibold text-white hover:opacity-95"
+              onClick={() => void saveRoles()}
+              disabled={rolesBusy}
+              className="rounded-xl bg-primary px-4 py-2 font-semibold text-white hover:opacity-95 disabled:opacity-60"
             >
-              Save changes
+              {rolesBusy ? 'Saving…' : 'Save changes'}
             </button>
           </div>
         </Card>
@@ -791,68 +744,26 @@ export function UserProfile({ userId, onBack }: UserProfileProps) {
       )}
 
       {tab === 'settings' && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card title="Security">
-            <p className="mb-3 text-sm text-muted">
-              Password reset emails the user a demo link (same as directory action).
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                resetUserPassword(subject.id)
-                toast.message('Password reset (demo)')
-              }}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            >
-              Send password reset
-            </button>
-          </Card>
-          <Card title="Notifications">
-            <label className="flex cursor-pointer items-center gap-2 py-1">
-              <input
-                type="checkbox"
-                checked={settings.emailDigest}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, emailDigest: e.target.checked }))
-                }
-              />
-              Daily performance digest
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 py-1">
-              <input
-                type="checkbox"
-                checked={settings.smsAlerts}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, smsAlerts: e.target.checked }))
-                }
-              />
-              SMS alerts for QA flags
-            </label>
-          </Card>
-          <Card title="UI preferences">
-            <label className="block text-sm">
-              <span className="text-muted">Theme (demo — not wired to app shell)</span>
-              <select
-                className="mt-1 w-full rounded-lg border border-border px-3 py-2"
-                value={settings.themePref}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    themePref: e.target.value as StoredSettings['themePref'],
-                  }))
-                }
-              >
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-          </Card>
-        </div>
+        <Card title="Security">
+          <p className="mb-3 text-sm text-muted">
+            Reset this user's password to a known temporary value. They can change it after they log in.
+          </p>
+          <button
+            type="button"
+            onClick={() => void sendPasswordReset()}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-slate-50"
+          >
+            Send password reset
+          </button>
+          <p className="mt-4 text-xs text-muted">
+            Notification + UI preferences are self-service. Users can manage them from their own
+            "My Profile" page.
+          </p>
+        </Card>
       )}
 
       {tab === 'team' && (
-        <Card title="Team / group" description="Other agents in the demo directory.">
+        <Card title="Team / group" description="Other agents in the directory.">
           <ul className="divide-y divide-border text-sm">
             {teamPeers.map((u) => (
               <li key={u.id} className="flex flex-wrap justify-between gap-2 py-3">

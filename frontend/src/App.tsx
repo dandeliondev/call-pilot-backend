@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { AuthProvider } from './context/AuthProvider'
 import { CampaignsProvider } from './context/CampaignsProvider'
-import { MockAuthProvider } from './context/MockAuthProvider'
 import { UsersProvider } from './context/UsersProvider'
 import { useAuth } from './hooks/useAuth'
-import { useMockAuth } from './hooks/useMockAuth'
+import { useUsers } from './hooks/useUsers'
 import type { AppSection, CampaignRouteState, ReportsMenuId } from './types/app'
 import { AIInsights } from './views/AIInsights'
 import { AgentApp } from './views/AgentApp'
@@ -15,6 +14,7 @@ import { CampaignManagement } from './views/CampaignManagement'
 import { CampaignWizard } from './views/CampaignWizard'
 import { Dashboard } from './views/Dashboard'
 import { LiveMonitor } from './views/LiveMonitor'
+import { MyProfile } from './views/MyProfile'
 import { ReportsHub } from './views/ReportsHub'
 import { ScriptManagement } from './views/ScriptManagement'
 import { UserManagement } from './views/UserManagement'
@@ -33,7 +33,7 @@ const REPORT_PAGE_TITLES: Record<ReportsMenuId, string> = {
 
 function MainApp() {
   const { user, status, logout } = useAuth()
-  const { directory } = useMockAuth()
+  const { users } = useUsers()
   const [section, setSection] = useState<AppSection>('dashboard')
   const [reportsMenuId, setReportsMenuId] = useState<ReportsMenuId>('overview')
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
@@ -106,9 +106,10 @@ function MainApp() {
     if (activeSection === 'insights') return REPORT_PAGE_TITLES.insights
     if (activeSection === 'reports') return REPORT_PAGE_TITLES[reportsMenuId]
     if (activeSection === 'users' && profileUserId) {
-      const u = directory.find((d) => d.id === profileUserId)
+      const u = users.find((d) => d.id === profileUserId)
       return u ? `${u.name} — User profile` : 'User profile'
     }
+    if (activeSection === 'profile') return 'My profile'
     if (activeSection === 'campaign') {
       if (campaignNav.mode === 'wizard') return 'Create campaign'
       if (campaignNav.mode === 'detail') return 'Campaign details'
@@ -116,7 +117,7 @@ function MainApp() {
     }
     if (activeSection === 'live') return 'Live Monitor'
     return undefined
-  }, [activeSection, reportsMenuId, profileUserId, directory, campaignNav])
+  }, [activeSection, reportsMenuId, profileUserId, users, campaignNav])
 
   if (status === 'loading') {
     return (
@@ -178,6 +179,8 @@ function MainApp() {
         return <UserManagement onOpenProfile={(id) => setProfileUserId(id)} />
       case 'agent':
         return <AgentApp />
+      case 'profile':
+        return <MyProfile />
       default:
         return <Dashboard onOpenLive={() => setSection('live')} />
     }
@@ -198,6 +201,7 @@ function MainApp() {
       isAdmin={isAdmin}
       userLabel={`${user.name} (${user.email})`}
       onLogout={logout}
+      onOpenProfile={() => setSection('profile')}
     >
       {renderSection()}
     </AppShell>
@@ -207,13 +211,11 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MockAuthProvider>
-        <UsersProvider>
-          <CampaignsProvider>
-            <MainApp />
-          </CampaignsProvider>
-        </UsersProvider>
-      </MockAuthProvider>
+      <UsersProvider>
+        <CampaignsProvider>
+          <MainApp />
+        </CampaignsProvider>
+      </UsersProvider>
     </AuthProvider>
   )
 }

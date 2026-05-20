@@ -18,6 +18,7 @@ interface AppShellProps {
   isAdmin?: boolean
   userLabel?: string
   onLogout?: () => void
+  onOpenProfile?: () => void
 }
 
 export function AppShell({
@@ -35,6 +36,7 @@ export function AppShell({
   isAdmin = false,
   userLabel,
   onLogout,
+  onOpenProfile,
 }: AppShellProps) {
   const isAgent = section === 'agent'
 
@@ -60,6 +62,7 @@ export function AppShell({
             onMenuClick={onMobileOpen}
             userLabel={userLabel}
             onLogout={onLogout}
+            onOpenProfile={onOpenProfile}
           />
         )}
         {isAgent && (

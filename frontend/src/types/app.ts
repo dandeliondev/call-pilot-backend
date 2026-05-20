@@ -7,6 +7,7 @@ export type AppSection =
   | 'insights'
   | 'users'
   | 'agent'
+  | 'profile'
 
 /** Items under 📊 Reports Menu (Overview & AI Insights use sections `dashboard` / `insights`). */
 export type ReportsMenuId =
