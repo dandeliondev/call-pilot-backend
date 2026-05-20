@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
 import {
@@ -8,7 +8,7 @@ import {
   type CallFlowComplexity,
 } from '../lib/campaignAiMock'
 import { CALL_FLOW_SECTIONS, TIMEZONES, updateSoundboardLine } from '../lib/campaignCallFlowShared'
-import { createCampaign, listKnownAgents, listKnownCampaignManagers } from '../mock/campaignsStore'
+import { useCampaignsContext } from '../hooks/useCampaigns'
 import { DEMO_RANDOM_CAMPAIGN_DESCRIPTIONS } from '../mock/campaignRandomDescriptions'
 import { initialScripts } from '../mock/data'
 import type {
@@ -37,6 +37,7 @@ interface CampaignWizardProps {
 }
 
 export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
+  const { agents: agentsPool, managers: managersPool, createCampaign } = useCampaignsContext()
   const [step, setStep] = useState(0)
   const [isGeneratingRandomBrief, setIsGeneratingRandomBrief] = useState(false)
 
@@ -56,14 +57,17 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
   const [scheduleLocal, setScheduleLocal] = useState('')
   const [timezone, setTimezone] = useState<string>('America/New_York')
 
-  const agentsPool = useMemo(() => [...listKnownAgents()], [])
-  const managersPool = useMemo(() => [...listKnownCampaignManagers()], [])
-  const [selectedAgents, setSelectedAgents] = useState<string[]>(() =>
-    agentsPool.slice(0, 2),
-  )
-  const [selectedManagers, setSelectedManagers] = useState<string[]>(() =>
-    managersPool.slice(0, 1),
-  )
+  const [selectedAgentIds, setSelectedAgentIds] = useState<number[]>([])
+  const [selectedManagerIds, setSelectedManagerIds] = useState<number[]>([])
+
+  useEffect(() => {
+    if (selectedAgentIds.length === 0 && agentsPool.length) {
+      setSelectedAgentIds(agentsPool.slice(0, 2).map((a) => a.id))
+    }
+    if (selectedManagerIds.length === 0 && managersPool.length) {
+      setSelectedManagerIds(managersPool.slice(0, 1).map((m) => m.id))
+    }
+  }, [agentsPool, managersPool, selectedAgentIds.length, selectedManagerIds.length])
   const [callLimitDaily, setCallLimitDaily] = useState(400)
   const [pacingSecondsBetweenCalls, setPacingSecondsBetweenCalls] = useState(15)
 
@@ -74,15 +78,15 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     null,
   )
 
-  function toggleAgent(a: string) {
-    setSelectedAgents((prev) =>
-      prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a],
+  function toggleAgent(id: number) {
+    setSelectedAgentIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     )
   }
 
-  function toggleManager(m: string) {
-    setSelectedManagers((prev) =>
-      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m],
+  function toggleManager(id: number) {
+    setSelectedManagerIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     )
   }
 
@@ -186,7 +190,6 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       return
     }
     const scriptMeta = initialScripts.find((s) => s.id === scriptId)
-    const id = `camp-${crypto.randomUUID().slice(0, 10)}`
     const now = new Date()
     const startIso = scheduleLocal
       ? new Date(scheduleLocal).toISOString()
@@ -203,20 +206,18 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
     }
 
     const derived = generateCampaignFromDescription(brief)
-    const record: ManagedCampaign = {
-      id,
+    const selectedAgents = agentsPool.filter((a) => selectedAgentIds.includes(a.id))
+    const selectedManagers = managersPool.filter((m) => selectedManagerIds.includes(m.id))
+    const payload: Omit<ManagedCampaign, 'id' | 'createdAt'> = {
       name: name.trim(),
       description: brief.trim(),
       status,
       type,
-      createdAt: now.toISOString(),
       scheduleStart: mode === 'draft' ? (scheduleLocal ? startIso : null) : startIso,
       scheduleEnd: null,
       timezone,
-      assignedAgents: selectedAgents.length ? selectedAgents : agentsPool.slice(0, 2),
-      assignedCampaignManagers: selectedManagers.length
-        ? selectedManagers
-        : managersPool.slice(0, 1),
+      assignedAgents: selectedAgents,
+      assignedCampaignManagers: selectedManagers,
       scriptId: scriptSource === 'library' ? scriptId : null,
       scriptName: scriptSource === 'library' ? scriptMeta?.name ?? null : null,
       callLimitDaily,
@@ -231,9 +232,12 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
       agentSoundboard: scriptSource === 'soundboard' ? soundboardBundle ?? undefined : undefined,
     }
 
-    createCampaign(record)
-    toast.success(mode === 'draft' ? 'Draft saved' : 'Campaign completed (demo)')
-    onComplete(id)
+    void createCampaign(payload)
+      .then((created) => {
+        toast.success(mode === 'draft' ? 'Draft saved' : 'Campaign completed')
+        onComplete(created.id)
+      })
+      .catch(() => toast.error('Could not save campaign'))
   }
 
   return (
@@ -623,9 +627,9 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
               <div className="flex flex-wrap gap-2">
                 {managersPool.map((m) => (
                   <label
-                    key={m}
+                    key={m.id}
                     className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                      selectedManagers.includes(m)
+                      selectedManagerIds.includes(m.id)
                         ? 'border-violet-500 bg-violet-500/10 text-violet-900'
                         : 'border-border hover:bg-slate-50'
                     }`}
@@ -633,10 +637,10 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
                     <input
                       type="checkbox"
                       className="sr-only"
-                      checked={selectedManagers.includes(m)}
-                      onChange={() => toggleManager(m)}
+                      checked={selectedManagerIds.includes(m.id)}
+                      onChange={() => toggleManager(m.id)}
                     />
-                    {m}
+                    {m.name}
                   </label>
                 ))}
               </div>
@@ -647,9 +651,9 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
               <div className="flex flex-wrap gap-2">
                 {agentsPool.map((a) => (
                   <label
-                    key={a}
+                    key={a.id}
                     className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                      selectedAgents.includes(a)
+                      selectedAgentIds.includes(a.id)
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border hover:bg-slate-50'
                     }`}
@@ -657,10 +661,10 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
                     <input
                       type="checkbox"
                       className="sr-only"
-                      checked={selectedAgents.includes(a)}
-                      onChange={() => toggleAgent(a)}
+                      checked={selectedAgentIds.includes(a.id)}
+                      onChange={() => toggleAgent(a.id)}
                     />
-                    {a}
+                    {a.name}
                   </label>
                 ))}
               </div>
@@ -718,7 +722,7 @@ export function CampaignWizard({ onCancel, onComplete }: CampaignWizardProps) {
           <ul className="mb-6 space-y-2 text-sm text-muted">
             <li>
               <strong className="text-text">{name || '(unnamed)'}</strong> — {type},{' '}
-              {selectedManagers.length} manager(s), {selectedAgents.length} agent(s).
+              {selectedManagerIds.length} manager(s), {selectedAgentIds.length} agent(s).
               {scriptSource === 'library' ? (
                 <>
                   {' '}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Card } from '../components/ui/Card'
 import {
@@ -8,11 +8,7 @@ import {
   type CallFlowComplexity,
 } from '../lib/campaignAiMock'
 import { CALL_FLOW_SECTIONS, TIMEZONES, updateSoundboardLine } from '../lib/campaignCallFlowShared'
-import {
-  listKnownAgents,
-  listKnownCampaignManagers,
-  updateCampaign,
-} from '../mock/campaignsStore'
+import { useCampaignsContext } from '../hooks/useCampaigns'
 import { initialScripts } from '../mock/data'
 import type {
   AgentSoundboardBundle,
@@ -54,8 +50,7 @@ function cloneBundle(b: AgentSoundboardBundle | undefined): AgentSoundboardBundl
 }
 
 export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign }) {
-  const agentsPool = useMemo(() => [...listKnownAgents()], [])
-  const managersPool = useMemo(() => [...listKnownCampaignManagers()], [])
+  const { agents: agentsPool, managers: managersPool, updateCampaign } = useCampaignsContext()
 
   const [name, setName] = useState(campaign.name)
   const [description, setDescription] = useState(campaign.description)
@@ -81,13 +76,11 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
     cloneBundle(campaign.agentSoundboard),
   )
 
-  const [selectedAgents, setSelectedAgents] = useState<string[]>(() =>
-    campaign.assignedAgents.length ? [...campaign.assignedAgents] : agentsPool.slice(0, 2),
+  const [selectedAgentIds, setSelectedAgentIds] = useState<number[]>(() =>
+    campaign.assignedAgents.map((a) => a.id),
   )
-  const [selectedManagers, setSelectedManagers] = useState<string[]>(() =>
-    campaign.assignedCampaignManagers.length
-      ? [...campaign.assignedCampaignManagers]
-      : managersPool.slice(0, 1),
+  const [selectedManagerIds, setSelectedManagerIds] = useState<number[]>(() =>
+    campaign.assignedCampaignManagers.map((m) => m.id),
   )
   const [callLimitDaily, setCallLimitDaily] = useState(campaign.callLimitDaily)
   const [pacingSecondsBetweenCalls, setPacingSecondsBetweenCalls] = useState(
@@ -120,27 +113,21 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
     setScriptId(campaign.scriptId ?? 's1')
     setAbScriptId(campaign.abScriptId ?? '')
     setSoundboardBundle(cloneBundle(campaign.agentSoundboard))
-    setSelectedAgents(
-      campaign.assignedAgents.length ? [...campaign.assignedAgents] : agentsPool.slice(0, 2),
-    )
-    setSelectedManagers(
-      campaign.assignedCampaignManagers.length
-        ? [...campaign.assignedCampaignManagers]
-        : managersPool.slice(0, 1),
-    )
+    setSelectedAgentIds(campaign.assignedAgents.map((a) => a.id))
+    setSelectedManagerIds(campaign.assignedCampaignManagers.map((m) => m.id))
     setCallLimitDaily(campaign.callLimitDaily)
     setPacingSecondsBetweenCalls(campaign.pacingSecondsBetweenCalls)
-  }, [campaign, agentsPool])
+  }, [campaign])
 
-  function toggleAgent(a: string) {
-    setSelectedAgents((prev) =>
-      prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a],
+  function toggleAgent(id: number) {
+    setSelectedAgentIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     )
   }
 
-  function toggleManager(m: string) {
-    setSelectedManagers((prev) =>
-      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m],
+  function toggleManager(id: number) {
+    setSelectedManagerIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     )
   }
 
@@ -217,7 +204,9 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
     }
     const derived = generateCampaignFromDescription(description)
     const scriptMeta = initialScripts.find((s) => s.id === scriptId)
-    updateCampaign(campaign.id, {
+    const selectedAgents = agentsPool.filter((u) => selectedAgentIds.includes(u.id))
+    const selectedManagers = managersPool.filter((u) => selectedManagerIds.includes(u.id))
+    void updateCampaign(campaign.id, {
       name: name.trim(),
       description: description.trim(),
       type,
@@ -229,10 +218,8 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
       aiSuggestedScript: derived.suggestedScript,
       aiTone: wizardTone.trim() || derived.tone,
       callFlowComplexity: complexity,
-      assignedAgents: selectedAgents.length ? selectedAgents : agentsPool.slice(0, 2),
-      assignedCampaignManagers: selectedManagers.length
-        ? selectedManagers
-        : managersPool.slice(0, 1),
+      assignedAgents: selectedAgents,
+      assignedCampaignManagers: selectedManagers,
       callLimitDaily,
       pacingSecondsBetweenCalls,
       scriptId: scriptSource === 'library' ? scriptId : null,
@@ -240,13 +227,17 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
       abScriptId: scriptSource === 'library' ? abScriptId || null : null,
       agentSoundboard: scriptSource === 'soundboard' ? soundboardBundle ?? undefined : undefined,
     })
-    toast.success('Campaign settings saved')
+      .then(() => toast.success('Campaign settings saved'))
+      .catch(() => toast.error('Could not save campaign settings'))
   }
 
   function setLifecycle(next: CampaignLifecycleState) {
-    updateCampaign(campaign.id, { status: next })
-    setStatus(next)
-    toast.success(`Status → ${STATUS_LABEL[next]}`)
+    void updateCampaign(campaign.id, { status: next })
+      .then(() => {
+        setStatus(next)
+        toast.success(`Status → ${STATUS_LABEL[next]}`)
+      })
+      .catch(() => toast.error('Could not update status'))
   }
 
   function goNext() {
@@ -629,9 +620,9 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
             <div className="flex flex-wrap gap-2">
               {managersPool.map((m) => (
                 <label
-                  key={m}
+                  key={m.id}
                   className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                    selectedManagers.includes(m)
+                    selectedManagerIds.includes(m.id)
                       ? 'border-violet-500 bg-violet-500/10 text-violet-900'
                       : 'border-border hover:bg-slate-50'
                   }`}
@@ -639,10 +630,10 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
                   <input
                     type="checkbox"
                     className="sr-only"
-                    checked={selectedManagers.includes(m)}
-                    onChange={() => toggleManager(m)}
+                    checked={selectedManagerIds.includes(m.id)}
+                    onChange={() => toggleManager(m.id)}
                   />
-                  {m}
+                  {m.name}
                 </label>
               ))}
             </div>
@@ -653,9 +644,9 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
             <div className="flex flex-wrap gap-2">
               {agentsPool.map((a) => (
                 <label
-                  key={a}
+                  key={a.id}
                   className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-                    selectedAgents.includes(a)
+                    selectedAgentIds.includes(a.id)
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border hover:bg-slate-50'
                   }`}
@@ -663,10 +654,10 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
                   <input
                     type="checkbox"
                     className="sr-only"
-                    checked={selectedAgents.includes(a)}
-                    onChange={() => toggleAgent(a)}
+                    checked={selectedAgentIds.includes(a.id)}
+                    onChange={() => toggleAgent(a.id)}
                   />
-                  {a}
+                  {a.name}
                 </label>
               ))}
             </div>
@@ -722,7 +713,7 @@ export function CampaignSettingsTab({ campaign }: { campaign: ManagedCampaign })
           <ul className="mb-6 space-y-2 text-sm text-muted">
             <li>
               <strong className="text-text">{name.trim() || '(unnamed)'}</strong> — {type},{' '}
-              {selectedManagers.length} manager(s), {selectedAgents.length} agent(s).
+              {selectedManagerIds.length} manager(s), {selectedAgentIds.length} agent(s).
               {scriptSource === 'library' ? (
                 <>
                   {' '}

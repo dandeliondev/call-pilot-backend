@@ -89,7 +89,13 @@ export type RegenerableSoundboardSection =
   | 'dispositions'
   | 'dtmf'
 
-/** Persisted campaign record (demo localStorage). */
+/** {id, name} pair used for campaign assignees and the agent/manager directories. */
+export interface CampaignAssignee {
+  id: number
+  name: string
+}
+
+/** Persisted campaign record (served by Laravel; previously localStorage). */
 export interface ManagedCampaign {
   id: string
   name: string
@@ -102,10 +108,10 @@ export interface ManagedCampaign {
   /** ISO — optional end */
   scheduleEnd: string | null
   timezone: string
-  /** Agent display names (matches mock call rows) */
-  assignedAgents: string[]
-  /** Campaign managers — oversight, approvals, reporting (demo names). */
-  assignedCampaignManagers: string[]
+  /** Real users (id + display name) assigned as agents on this campaign. */
+  assignedAgents: CampaignAssignee[]
+  /** Real users assigned as campaign managers (oversight/approvals/reporting). */
+  assignedCampaignManagers: CampaignAssignee[]
   scriptId: string | null
   scriptName: string | null
   callLimitDaily: number

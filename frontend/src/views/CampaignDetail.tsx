@@ -82,7 +82,7 @@ function OverviewPeopleRow({
   salt,
 }: {
   title: string
-  people: string[]
+  people: { id: number; name: string }[]
   salt: number
 }) {
   if (!people.length) {
@@ -97,8 +97,8 @@ function OverviewPeopleRow({
     <div>
       <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{title}</p>
       <ul className="flex flex-wrap gap-x-6 gap-y-4">
-        {people.map((name) => (
-          <li key={name} className="flex items-center gap-3">
+        {people.map(({ id, name }) => (
+          <li key={id} className="flex items-center gap-3">
             <span
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xs font-bold shadow-sm ${avatarPaletteClass(name, salt)}`}
               aria-hidden
@@ -468,20 +468,20 @@ function AgentsTab({
       .sort((a, b) => b.convPct - a.convPct)
   }, [rows])
 
-  const assigned = campaign.assignedAgents
+  const assignedNames = campaign.assignedAgents.map((a) => a.name)
   const leaderboard = fromCalls.length
     ? fromCalls
-    : assigned.map((a) => ({ agent: a, calls: 0, convPct: 0, avgAi: 0 }))
+    : assignedNames.map((a) => ({ agent: a, calls: 0, convPct: 0, avgAi: 0 }))
 
   return (
     <div className="space-y-6">
       <Card title="Campaign managers" description="Edit in Settings — Resources.">
         <p className="text-sm text-text">
-          {campaign.assignedCampaignManagers.join(', ') || '—'}
+          {campaign.assignedCampaignManagers.map((m) => m.name).join(', ') || '—'}
         </p>
       </Card>
       <Card title="Assigned roster" description="Edit roster in Settings — Agents & dialing.">
-        <p className="text-sm text-text">{assigned.join(', ') || '—'}</p>
+        <p className="text-sm text-text">{assignedNames.join(', ') || '—'}</p>
       </Card>
       <Card title="Performance & leaderboard" description="Derived from mock calls for this campaign id.">
         <div className="overflow-x-auto">

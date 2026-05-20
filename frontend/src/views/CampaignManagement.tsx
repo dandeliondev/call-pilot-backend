@@ -184,8 +184,9 @@ function CampaignRow({
   metrics: { callsMade: number; conversionPct: number; avgAiScore: number }
   onOpen: () => void
 }) {
-  const agents = c.assignedAgents.slice(0, 3).join(', ')
-  const more = c.assignedAgents.length > 3 ? ` +${c.assignedAgents.length - 3}` : ''
+  const agentNames = c.assignedAgents.map((a) => a.name)
+  const agents = agentNames.slice(0, 3).join(', ')
+  const more = agentNames.length > 3 ? ` +${agentNames.length - 3}` : ''
 
   return (
     <tr className="border-b border-border/80 transition-colors hover:bg-slate-50/80">
@@ -211,7 +212,7 @@ function CampaignRow({
         {metrics.callsMade ? `${metrics.conversionPct}%` : '—'}
       </td>
       <td className="max-w-[220px] px-4 py-3 text-xs text-muted">
-        <span className="line-clamp-2" title={c.assignedAgents.join(', ')}>
+        <span className="line-clamp-2" title={agentNames.join(', ')}>
           {agents}
           {more}
         </span>

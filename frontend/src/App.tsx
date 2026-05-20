@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { AuthProvider } from './context/AuthProvider'
+import { CampaignsProvider } from './context/CampaignsProvider'
 import { MockAuthProvider } from './context/MockAuthProvider'
 import { useAuth } from './hooks/useAuth'
 import { useMockAuth } from './hooks/useMockAuth'
@@ -206,7 +207,9 @@ export default function App() {
   return (
     <AuthProvider>
       <MockAuthProvider>
-        <MainApp />
+        <CampaignsProvider>
+          <MainApp />
+        </CampaignsProvider>
       </MockAuthProvider>
     </AuthProvider>
   )
